@@ -1,307 +1,450 @@
-# Cell Broadcast Monitor
+# 📡 5G Broadcast Monitor
 
-Complete monitoring and analysis solution for Cell Broadcast signal testing.
+Professional 5G Broadcast signal analysis and coverage mapping tool for real-time RSRP/RSRQ monitoring with GPS correlation and modulation threshold analysis.
 
-## 📁 Directory Structure
+![Version](https://img.shields.io/badge/version-1.0-blue)
+![Python](https://img.shields.io/badge/python-3.7+-green)
+![License](https://img.shields.io/badge/license-MIT-blue)
+
+## 🌟 Features
+
+- **Real-time Signal Monitoring** - RSRP, RSRQ, RSSI, SNR metrics via ADB
+- **GPS-Correlated Tracking** - High-precision location data with route visualization
+- **Interactive Heatmap** - Coverage analysis with 16-QAM/QPSK modulation thresholds
+- **Live Dashboard** - Real-time gauges, network info, and session statistics
+- **Session Management** - Automatic logging, indexing, and historical replay
+- **Web Control Interface** - Start/stop monitoring, device status, and session browser
+- **CSV Export** - Full parameter export for post-processing and reporting
+- **Modulation Analysis** - Signal quality classification based on 3GPP standards
+
+## 📁 Project Structure
 
 ```
 cb_monitor/
-├── cb_monitor.py          # Main backend script for data capture
-├── api_server.py          # Web server with CSV export API
-├── index.html             # Main menu/landing page
+├── cb_monitor.py          # Main monitoring backend (ADB integration)
+├── api_server.py          # Web API server with control endpoints
+├── start.sh               # Quick-start script (server + monitoring)
+├── index.html             # Main control interface
 ├── dashboard.html         # Live monitoring dashboard
-├── heatmap.html          # Historical heatmap viewer
+├── heatmap.html          # Coverage heatmap viewer
+├── sessions.html         # Session browser and export
 ├── data/                  # Generated data files
-│   ├── status.json       # Current live status
-│   └── data_index.json   # Session index
+│   ├── status.json       # Current live status (with session_id)
+│   └── data_index.json   # Session index and metadata
 ├── logs/                  # Session log files (.jsonl)
-└── static/               # Additional assets (optional)
+└── test_phone.py         # Device testing utilities
 ```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-1. **Android SDK Platform Tools** (for ADB)
-   - Download: https://developer.android.com/studio/releases/platform-tools
-   - Make sure `adb` is in your PATH
+1. **Android SDK Platform Tools** (ADB)
+   ```bash
+   # macOS with Homebrew
+   brew install android-platform-tools
 
-2. **Python 3.7+**
-   - No additional packages required (uses only stdlib)
+   # Or download from:
+   # https://developer.android.com/studio/releases/platform-tools
+   ```
 
-3. **Android phone** connected via USB with:
+2. **Python 3.7+** (no external packages required)
+
+3. **Android Phone** with:
    - USB debugging enabled
-   - Location services enabled (for GPS)
+   - Location services enabled
+   - 5G Broadcast capable device (recommended)
 
-### Basic Usage
+### Installation
 
-**1. Start Monitoring**
 ```bash
-cd cb_monitor
-python3 cb_monitor.py monitor
+# Clone the repository
+git clone git@github.com:kkaasan/5GBC_phone_monitor.git
+cd 5GBC_phone_monitor
+
+# Connect your phone via USB and enable USB debugging
+# Accept the "Allow USB debugging" prompt on your phone
+
+# Start the server
+./start.sh
 ```
 
-This will:
-- Check ADB connection
-- Start capturing data every 30 seconds
-- Save to `logs/YYYYMMDD_HHMMSS.jsonl`
-- Update `data/status.json` for live dashboard
+### Access the Interface
 
-**2. Start Web Server** (in another terminal)
-```bash
-python3 api_server.py
-```
-
-Or use the simpler http.server:
-```bash
-python3 -m http.server 8888
-```
-
-**3. Open Dashboard**
-- Navigate to: http://localhost:8888
-- Click "Live Dashboard" to see real-time monitoring
-- Click "RSSI Heatmap" to view historical data
-
-**4. Stop Monitoring**
-- Press `Ctrl+C` in the monitoring terminal
-- Session will be automatically saved and indexed
+Open your browser and navigate to:
+- **Main Menu**: http://localhost:8888/index.html
+- **Live Dashboard**: http://localhost:8888/dashboard.html
+- **Coverage Heatmap**: http://localhost:8888/heatmap.html
+- **Sessions & Export**: http://localhost:8888/sessions.html
 
 ## 📊 Web Interface
 
-### Live Dashboard (`dashboard.html`)
-Real-time monitoring interface with:
-- **Signal Gauges**: RSSI, RSRP, RSRQ, SNR values
-- **Live Map**: GPS location with route history
+### 1. Main Control Interface (`index.html`)
+
+**Features:**
+- Start/Stop monitoring with web buttons
+- Real-time device connection status
+- Automatic status updates every 3 seconds
+- Links to all monitoring views
+- Signal classification guide (16-QAM/QPSK thresholds)
+
+**Usage:**
+1. Connect phone via USB
+2. Click **"▶️ Start Monitoring"**
+3. Navigate to Live Dashboard or Heatmap
+4. Click **"⏹️ Stop Monitoring"** when done
+
+### 2. Live Dashboard (`dashboard.html`)
+
+**Features:**
+- **Real-time Gauges**: RSSI, RSRP, RSRQ, SNR with circular progress indicators
+- **Live Map**: GPS location with complete route history
 - **Network Info**: MCC, MNC, TAC, Cell ID, PCI, EARFCN
-- **Session Stats**: Data points, signal range, coverage distance
+- **Session Statistics**:
+  - Total data points collected
+  - Signal range (min/max RSSI)
+  - Coverage distance traveled
+  - **Persists across page refreshes!**
+- **Auto-updates**: Every 2 seconds
 
-Updates every 2 seconds from `data/status.json`
+**Session Persistence:**
+The dashboard loads all historical data from the current session on page load, so statistics remain accurate even after refreshing the page.
 
-### Heatmap Viewer (`heatmap.html`)
-Historical data analysis with:
-- **Session Selection**: Dropdown of all captured sessions
-- **Date/Time Filter**: Filter data by specific time ranges
-- **Interactive Map**:
-  - 🔥 Heatmap overlay (signal strength gradient)
-  - 🛣️ Route line (path traveled)
-  - 📍 Markers (individual data points)
+### 3. Coverage Heatmap (`heatmap.html`)
+
+**Features:**
+- **Session Selection**: Browse all captured sessions
+- **Direct Session Links**: Click "View Map" from sessions page to open specific session
+- **Date/Time Filtering**: Filter data by specific time ranges
+- **Interactive Visualization**:
+  - 🔥 **Heatmap**: Signal strength gradient overlay
+  - 🛣️ **Route**: Path traveled during monitoring
+  - 📍 **Markers**: Individual measurement points with popups
 - **Export to CSV**: Download session data
-- **Signal Color Coding**:
-  - 🟢 Green: Excellent (> -80 dBm)
-  - 🟡 Yellow: Good (-90 to -80 dBm)
-  - 🟠 Orange: Fair (-100 to -90 dBm)
-  - 🔴 Red: Poor (< -100 dBm)
+- **Collapsible Controls**: Clean interface with expandable control panel
+
+**Signal Classification (OR Logic):**
+- 🟩 **16-QAM Capable**: RSRP ≥ -95 dBm OR RSRQ ≥ -10 dB
+- 🟨 **Better Signal**: RSRP ≥ -105 dBm OR RSRQ ≥ -13 dB
+- 🟥 **QPSK Reception**: RSRP ≥ -115 dBm OR RSRQ ≥ -17 dB
+- ⚫ **Unusable**: RSRP < -120 dBm AND RSRQ < -20 dB
+
+### 4. Sessions & Export (`sessions.html`)
+
+**Features:**
+- Browse all captured sessions with statistics
+- Session cards showing:
+  - Data point count
+  - Session duration
+  - Start time
+  - GPS availability
+- **View Map**: Opens heatmap with selected session pre-loaded
+- **Export CSV**: Download session data with all parameters
 
 ## 📝 Command Line Usage
 
+### Manual Monitoring
+
 ```bash
-# Start monitoring
+# Start monitoring (captures every 30 seconds)
 python3 cb_monitor.py monitor
 
 # List all sessions
 python3 cb_monitor.py list
 
 # Export session to CSV
-python3 cb_monitor.py export --session YYYYMMDD_HHMMSS
+python3 cb_monitor.py export --session 20251214_163944
 
 # Export with custom output file
-python3 cb_monitor.py export --session YYYYMMDD_HHMMSS --output mydata.csv
+python3 cb_monitor.py export --session 20251214_163944 --output my_data.csv
+```
 
-# Start web server on custom port
+### Server Options
+
+```bash
+# Start server on custom port
 python3 api_server.py 9000
+
+# Use the all-in-one start script
+./start.sh
 ```
 
 ## 📦 Data Format
 
 ### Status JSON (`data/status.json`)
-Updated every 30 seconds during monitoring:
+
+Updated every 30 seconds with current session:
+
 ```json
 {
-  "timestamp": "2025-12-10T14:30:15",
+  "timestamp": "2025-12-14T16:47:41.534356",
+  "session_id": "20251214_164610",
   "lte": {
     "tac": "65534",
     "earfcn": "68676",
-    "mcc": "248",
-    "mnc": "01",
-    "ci": "12345",
-    "pci": "41"
+    "mcc": "901",
+    "mnc": "56",
+    "ci": "1280",
+    "pci": "45"
   },
   "signal": {
-    "rssi": -75,
-    "rsrp": -95,
-    "rsrq": -10,
+    "rssi": -63,
+    "rsrp": -87,
+    "rsrq": -8,
     "snr": null
   },
   "location": {
-    "latitude": "59.437",
-    "longitude": "24.745"
+    "latitude": "59.491133",
+    "longitude": "24.912215"
   }
 }
 ```
 
-### Session Logs (`logs/*.jsonl`)
-One JSON object per line:
+### Session Index (`data/data_index.json`)
+
+Metadata for all sessions:
+
 ```json
-{"timestamp":"2025-12-10T14:30:15","lte":{...},"signal":{...},"location":{...}}
-{"timestamp":"2025-12-10T14:30:45","lte":{...},"signal":{...},"location":{...}}
+{
+  "sessions": [
+    {
+      "session_id": "20251214_163944",
+      "start_time": "2025-12-14T16:39:44.216175",
+      "end_time": "2025-12-14T16:45:46.493860",
+      "count": 13,
+      "bounds": {
+        "min_lat": 59.491145,
+        "max_lat": 59.491178,
+        "min_lon": 24.912219,
+        "max_lon": 24.912242
+      }
+    }
+  ]
+}
+```
+
+### Session Logs (`logs/*.jsonl`)
+
+One JSON object per line (JSONL format):
+
+```json
+{"timestamp":"2025-12-14T16:47:41","lte":{...},"signal":{...},"location":{...}}
+{"timestamp":"2025-12-14T16:48:11","lte":{...},"signal":{...},"location":{...}}
 ```
 
 ### CSV Export Format
+
 ```csv
 timestamp,latitude,longitude,rssi,rsrp,rsrq,snr,mcc,mnc,tac,ci,pci,earfcn
-2025-12-10T14:30:15,59.437,24.745,-75,-95,-10,,248,01,65534,12345,41,68676
-```
-
-## 🔧 Configuration
-
-Edit `cb_monitor.py` to change:
-```python
-SNAPSHOT_INTERVAL = 30  # Seconds between captures (default: 30)
+2025-12-14T16:47:41,59.491133,24.912215,-63,-87,-8,,901,56,65534,1280,45,68676
 ```
 
 ## 🎯 Use Cases
 
-### Cell Broadcast Testing
-1. Start monitoring before CB test
-2. View live dashboard to ensure data capture
-3. After test, use heatmap to analyze:
-   - Signal coverage during CB transmission
-   - Dead zones (weak signal areas)
-   - Route correlation with signal strength
+### 5G Broadcast Coverage Testing
 
-### Coverage Mapping
-1. Start monitoring while driving/walking
-2. Heatmap shows coverage quality
-3. Export CSV for further GIS analysis
+1. Start monitoring before broadcast transmission
+2. Monitor live signal quality on dashboard
+3. Drive/walk through coverage area
+4. Stop monitoring after test
+5. Analyze coverage heatmap with modulation thresholds
+6. Export CSV for reporting
 
-### Network Analysis
-1. Track cell tower handovers (PCI/CI changes)
-2. Correlate signal with location
-3. Identify problem areas
+### Network Quality Analysis
 
-## 📥 CSV Export Features
+1. Track signal metrics over time
+2. Identify dead zones and weak signal areas
+3. Correlate signal strength with GPS location
+4. Monitor cell tower handovers (PCI/CI changes)
 
-The CSV export includes ALL network statistics:
+### Drive Testing
 
-| Field | Description |
-|-------|-------------|
-| `timestamp` | ISO format date/time |
-| `latitude` | GPS latitude |
-| `longitude` | GPS longitude |
-| `rssi` | Received Signal Strength Indicator (dBm) |
-| `rsrp` | Reference Signal Received Power (dBm) |
-| `rsrq` | Reference Signal Received Quality (dB) |
-| `snr` | Signal-to-Noise Ratio (dB) |
-| `mcc` | Mobile Country Code |
-| `mnc` | Mobile Network Code |
-| `tac` | Tracking Area Code |
-| `ci` | Cell ID |
-| `pci` | Physical Cell ID |
-| `earfcn` | E-UTRA Absolute Radio Frequency Channel Number |
+1. Mount phone in vehicle
+2. Start monitoring via web interface
+3. Drive planned route
+4. Real-time monitoring on passenger device
+5. Post-analysis with heatmap filtering
 
-## 🗺️ Heatmap Date/Time Filtering
+## 🔧 Configuration
 
-The heatmap viewer allows precise time-range selection:
+Edit `cb_monitor.py` to customize:
 
-1. **Select Session**: Choose from dropdown
-2. **Select Date**: Pick the date (auto-filled from session)
-3. **Set Time Range**:
-   - From: Start time (e.g., 10:00)
-   - To: End time (e.g., 13:00)
-4. **Apply Filter**: Click "Apply Filter"
-5. **View Results**: Heatmap updates to show only selected timeframe
+```python
+# Capture interval (seconds)
+SNAPSHOT_INTERVAL = 30  # Default: 30 seconds
 
-**Example**: Filter CB test from 12:30-12:35:
-- Date: 2025-12-10
-- From: 12:30
-- To: 12:35
-- Result: Only data points in that 5-minute window
+# ADB path (auto-detected on macOS)
+ADB_PATH = '/opt/homebrew/bin/adb'
+```
 
 ## 🛠️ Troubleshooting
 
-### "ADB not found"
-```bash
-# Install Android SDK Platform Tools
-# macOS with Homebrew:
-brew install android-platform-tools
+### No Device Connected
 
-# Or download from:
-# https://developer.android.com/studio/releases/platform-tools
+```bash
+# Check ADB connection
+adb devices -l
+
+# Restart ADB server
+adb kill-server
+adb start-server
+
+# Verify phone settings:
+# - USB Debugging enabled (Developer Options)
+# - Accept "Allow USB debugging" prompt
+# - Use data cable (not charge-only)
 ```
 
-### "No devices connected"
-```bash
-# Check device connection:
-adb devices
+### Web Interface Not Updating
 
-# Enable USB debugging on phone:
-# Settings → Developer Options → USB Debugging
-```
+1. **Hard refresh**: Press `Cmd+Shift+R` (Mac) or `Ctrl+Shift+R` (Windows)
+2. **Check console**: Press `F12` → Console tab for errors
+3. **Verify server**: Ensure `api_server.py` is running
+4. **Check monitoring**: Verify `cb_monitor.py monitor` is active
 
-### "No GPS data"
+### No GPS Data
+
 - Enable Location Services on phone
-- May take 30-60 seconds to get GPS lock
-- Try outdoor location for better GPS signal
+- Wait 30-60 seconds for GPS lock
+- Move to outdoor location for better signal
+- Check `adb shell dumpsys location`
 
-### "No signal data (all '--')"
-- Check that phone has mobile network connection
-- Try `adb shell cmd phone cell-info` manually
-- Some phones may require root or special permissions
+### No Signal Data
 
-### Web interface shows "No data"
-- Make sure monitoring is running (`python3 cb_monitor.py monitor`)
-- Check that `data/status.json` exists and is updating
-- Refresh the browser page
+- Verify mobile network connection
+- Test manually: `adb shell dumpsys telephony.registry`
+- Some phones require root for full access
+- Try different USB port/cable
+
+### Browser Caching Issues
+
+```bash
+# Clear cache with hard refresh
+Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows)
+
+# Or disable cache in DevTools
+F12 → Network tab → Disable cache checkbox
+```
 
 ## 📱 Compatible Devices
 
-Tested on:
-- ✅ Motorola Edge 50
-- ✅ Samsung (most models)
+**Tested:**
+- ✅ Motorola Edge 50 Fusion
+- ✅ Samsung Galaxy series
 - ✅ Google Pixel phones
-- ✅ OnePlus phones
+- ✅ OnePlus devices
 
-Should work on any Android device with:
+**Requirements:**
 - Android 8.0+
 - ADB support
 - Location services
+- 5G Broadcast capability (for broadcast testing)
+
+## 🔬 Technical Details
+
+### Signal Metrics
+
+| Metric | Description | Range | Unit |
+|--------|-------------|-------|------|
+| RSSI | Received Signal Strength Indicator | -120 to -40 | dBm |
+| RSRP | Reference Signal Received Power | -140 to -80 | dBm |
+| RSRQ | Reference Signal Received Quality | -20 to -3 | dB |
+| SNR | Signal-to-Noise Ratio | -10 to 30 | dB |
+
+### Modulation Thresholds (3GPP Standards)
+
+- **16-QAM**: Higher data rates, requires RSRP ≥ -95 dBm OR RSRQ ≥ -10 dB
+- **QPSK**: Lower data rates, more robust, requires RSRP ≥ -115 dBm OR RSRQ ≥ -17 dB
+
+### Data Collection
+
+- **Sampling Rate**: Every 30 seconds (configurable)
+- **Data Source**: Android telephony API via ADB
+- **GPS Source**: Android location services
+- **Storage**: JSONL (one JSON object per line)
+- **Export**: CSV with all parameters
 
 ## 🔐 Privacy & Security
 
-- All data stays on your local machine
-- No internet connection required (except map tiles)
-- No data sent to external servers
-- ADB connection only to connected device
+- ✅ All data stays on local machine
+- ✅ No internet required (except map tiles)
+- ✅ No external servers
+- ✅ No data collection or telemetry
+- ✅ ADB connection only to your device
 
-## 📄 License
+## 📄 API Endpoints
 
-Created for Cell Broadcast testing and monitoring.
-Use freely for testing and analysis purposes.
+The API server (`api_server.py`) provides:
 
-## 🆘 Support
-
-For issues or questions:
-1. Check troubleshooting section above
-2. Verify ADB connection: `adb devices`
-3. Check log files in `logs/` directory
-4. Ensure web server is running on port 8888
+```
+GET  /api/monitor/status        - Get monitoring and device status
+POST /api/monitor/start         - Start monitoring
+POST /api/monitor/stop          - Stop monitoring
+GET  /api/export/{session_id}   - Export session to CSV
+```
 
 ## 🎉 Features Summary
 
-✅ Real-time signal monitoring
-✅ GPS location tracking
-✅ Interactive heatmaps
-✅ Historical data viewer
-✅ Date/time range filtering
-✅ CSV export with all network stats
-✅ Route visualization
-✅ Cell tower tracking (PCI, Cell ID)
-✅ Multiple session management
-✅ Zero external dependencies
-✅ Works offline (except map tiles)
+- ✅ Real-time signal monitoring (RSRP, RSRQ, RSSI, SNR)
+- ✅ GPS location tracking with route visualization
+- ✅ Interactive coverage heatmaps
+- ✅ 16-QAM/QPSK modulation threshold analysis
+- ✅ Session persistence across page refreshes
+- ✅ Web-based start/stop control
+- ✅ Direct session linking from browser
+- ✅ Date/time range filtering
+- ✅ CSV export with full network parameters
+- ✅ Cell tower tracking (PCI, Cell ID, TAC)
+- ✅ Multiple session management
+- ✅ Zero external Python dependencies
+- ✅ Works offline (except OpenStreetMap tiles)
+
+## 🚧 Known Limitations
+
+- SNR data not always available on all devices
+- GPS lock may take 30-60 seconds initially
+- Map tiles require internet connection
+- Some devices require root for full telephony access
+
+## 📈 Roadmap
+
+Future enhancements:
+- [ ] Multi-device monitoring support
+- [ ] Advanced filtering (by PCI, Cell ID, signal threshold)
+- [ ] Session comparison view
+- [ ] KML/KMZ export for Google Earth
+- [ ] Customizable capture intervals via web UI
+- [ ] Signal quality alerts/notifications
+
+## 🤝 Contributing
+
+Contributions welcome! Areas for improvement:
+- Additional Android device compatibility testing
+- UI/UX enhancements
+- Additional export formats
+- Performance optimizations
+
+## 📜 License
+
+MIT License - Use freely for testing and analysis purposes.
+
+## 🆘 Support
+
+**Issues:**
+- Check troubleshooting section above
+- Review browser console for errors (F12)
+- Verify ADB connection: `adb devices -l`
+- Check log files in `logs/` directory
+
+**For questions:**
+- Open an issue on GitHub
+- Check existing issues for solutions
 
 ---
 
 **Version**: 1.0
-**Created**: 2025-12-10
-**Purpose**: Cell Broadcast signal monitoring and analysis
+**Created**: December 2025
+**Purpose**: Professional 5G Broadcast signal monitoring and coverage analysis
+**Tech Stack**: Python 3, Leaflet.js, Android ADB, JSONL storage
+
+🤖 *Built with [Claude Code](https://claude.com/claude-code)*
