@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CB Monitor - RSSI Heatmap</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        .control-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            max-width: 350px;
+            max-height: 90vh;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+        }
+        .control-panel.collapsed {
+            max-width: 210px;
+            overflow: hidden;
+            padding: 10px 15px;
+        }
+        .control-panel.collapsed .control-panel-header {
+            margin-bottom: 0;
+        }
+        .control-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+        .control-panel h3 {
+            margin: 0;
+            font-size: 18px;
+            color: #667eea;
+        }
+        .collapse-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #667eea;
+            padding: 0;
+            line-height: 1;
+            transition: transform 0.3s;
+        }
+        .collapse-btn:hover {
+            transform: scale(1.2);
+        }
+        .control-panel-content {
+            transition: all 0.3s ease;
+        }
+        .control-panel.collapsed .control-panel-content {
+            display: none;
+        }
+        .control-section {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .control-section:last-child {
+            border-bottom: none;
+        }
+        .control-section h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #333;
+        }
+        .session-selector {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 13px;
+        }
+        .date-time-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .date-time-inputs input {
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #667eea;
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .button:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+        }
+        .button.secondary {
+            background: #10b981;
+        }
+        .button.secondary:hover {
+            background: #0ea970;
+        }
+        .button.export {
+            background: #f59e0b;
+        }
+        .button.export:hover {
+            background: #d97706;
+        }
+        .toggle-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 5px;
+        }
+        .toggle-btn {
+            padding: 8px;
+            border: 1px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+        .toggle-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        .stats-box {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            border-left: 3px solid #667eea;
+        }
+        .stats-box p {
+            margin: 4px 0;
+        }
+        .stats-box strong {
+            color: #667eea;
+        }
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            left: 10px;
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            font-size: 12px;
+        }
+        .legend-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        .legend-scale {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        .legend-color {
+            width: 35px;
+            height: 18px;
+            margin-right: 8px;
+            border-radius: 3px;
+            border: 1px solid #ddd;
+        }
+        .nav-header {
+            position: absolute;
+            top: 10px;
+            left: 60px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+        }
+        .nav-header a {
+            padding: 10px 16px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        .nav-header a:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-1px);
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="nav-header">
+        <a href="index.html">🏠 Home</a>
+        <a href="dashboard.html">📊 Live Dashboard</a>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="control-panel collapsed" id="controlPanel">
+        <div class="control-panel-header">
+            <h3>🗺️ Heatmap Controls</h3>
+            <button class="collapse-btn" onclick="toggleControlPanel()" title="Collapse/Expand">
+                <span id="collapseIcon">▶</span>
+            </button>
+        </div>
+
+        <div class="control-panel-content">
+            <div class="control-section">
+                <h4>Select Session</h4>
+                <select class="session-selector" id="sessionSelect">
+                    <option value="">Loading sessions...</option>
+                </select>
+            </div>
+
+            <div class="control-section">
+                <h4>Date & Time Filter</h4>
+                <div class="date-time-inputs">
+                    <input type="date" id="dateFilter" />
+                    <input type="time" id="timeFrom" placeholder="From" />
+                    <input type="time" id="timeTo" placeholder="To" />
+                </div>
+                <button class="button secondary" onclick="applyTimeFilter()">Apply Filter</button>
+                <button class="button" onclick="clearTimeFilter()">Show All</button>
+            </div>
+
+            <div class="control-section">
+                <h4>Display Options</h4>
+                <div class="toggle-group">
+                    <button class="toggle-btn active" id="toggle-heatmap" onclick="toggleHeatmap()">🔥 Heatmap</button>
+                    <button class="toggle-btn" id="toggle-route" onclick="toggleRoute()">🛣️ Route</button>
+                    <button class="toggle-btn active" id="toggle-markers" onclick="toggleMarkers()">📍 Markers</button>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h4>Actions</h4>
+                <button class="button export" onclick="exportToCSV()">📥 Export to CSV</button>
+                <button class="button" onclick="refreshSessions()">🔄 Refresh Sessions</button>
+            </div>
+
+            <div class="control-section">
+                <h4>Session Info</h4>
+                <div class="stats-box" id="sessionStats">
+                    <p>Select a session to view statistics</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="legend" id="legend" style="display: none;">
+        <div class="legend-title">📶 Signal Quality (RSRP + RSRQ)</div>
+        <div class="legend-scale">
+            <div class="legend-color" style="background: #00ff00;"></div>
+            <span>🟩 16-QAM: RSRP ≥ -95 dB OR RSRQ ≥ -10 dB</span>
+        </div>
+        <div class="legend-scale">
+            <div class="legend-color" style="background: #ffff00;"></div>
+            <span>🟨 Better: RSRP ≥ -105 dB OR RSRQ ≥ -13 dB</span>
+        </div>
+        <div class="legend-scale">
+            <div class="legend-color" style="background: #ff0000;"></div>
+            <span>🟥 QPSK: RSRP ≥ -115 dB OR RSRQ ≥ -17 dB</span>
+        </div>
+        <div class="legend-scale">
+            <div class="legend-color" style="background: #808080;"></div>
+            <span>⚫ Unusable: RSRP &lt; -120 dB AND RSRQ &lt; -20 dB</span>
+        </div>
+    </div>
+
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([59.437, 24.745], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Data and layers
+        let currentData = [];
+        let filteredData = [];
+        let sessions = {};
+        let currentSession = null;
+
+        let markersLayer = L.layerGroup().addTo(map);
+        let routeLayer = L.layerGroup();
+        let heatLayer = null;
+
+        let showHeatmap = true;
+        let showRoute = false;
+        let showMarkers = true;
+
+        // Load sessions index
+        async function loadSessions() {
+            try {
+                const response = await fetch('data/data_index.json?' + new Date().getTime());
+                if (!response.ok) {
+                    throw new Error('No sessions found');
+                }
+
+                const index = await response.json();
+                sessions = {};
+
+                const select = document.getElementById('sessionSelect');
+                select.innerHTML = '<option value="">-- Select a session --</option>';
+
+                index.sessions.forEach(session => {
+                    sessions[session.session_id] = session;
+                    const startDate = new Date(session.start_time);
+                    const endDate = new Date(session.end_time);
+
+                    const option = document.createElement('option');
+                    option.value = session.session_id;
+                    option.textContent = `${startDate.toLocaleDateString()} ${startDate.toLocaleTimeString()} - ${endDate.toLocaleTimeString()} (${session.count} points)`;
+                    select.appendChild(option);
+                });
+
+                select.onchange = () => loadSession(select.value);
+
+                // Check if session is specified in URL query parameter
+                const urlParams = new URLSearchParams(window.location.search);
+                const requestedSession = urlParams.get('session');
+
+                if (requestedSession && sessions[requestedSession]) {
+                    // Load the requested session from URL
+                    select.value = requestedSession;
+                    loadSession(requestedSession);
+                } else if (index.sessions.length > 0) {
+                    // Auto-load first session if no URL parameter
+                    select.value = index.sessions[0].session_id;
+                    loadSession(index.sessions[0].session_id);
+                }
+
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+                document.getElementById('sessionSelect').innerHTML = '<option value="">No sessions available</option>';
+            }
+        }
+
+        // Load session data
+        async function loadSession(sessionId) {
+            if (!sessionId) return;
+
+            currentSession = sessionId;
+
+            try {
+                const response = await fetch(`logs/${sessionId}.jsonl?` + new Date().getTime());
+                const text = await response.text();
+
+                currentData = text.trim().split('\n')
+                    .filter(line => line)
+                    .map(line => JSON.parse(line));
+
+                filteredData = [...currentData];
+
+                // Update date filter with session date
+                if (currentData.length > 0) {
+                    const firstDate = new Date(currentData[0].timestamp);
+                    document.getElementById('dateFilter').value = firstDate.toISOString().split('T')[0];
+                }
+
+                updateVisualization();
+                updateStats();
+
+            } catch (error) {
+                console.error('Error loading session:', error);
+                alert('Error loading session data');
+            }
+        }
+
+        // Apply time filter
+        function applyTimeFilter() {
+            const date = document.getElementById('dateFilter').value;
+            const timeFrom = document.getElementById('timeFrom').value;
+            const timeTo = document.getElementById('timeTo').value;
+
+            if (!date || !timeFrom || !timeTo) {
+                alert('Please select date and time range');
+                return;
+            }
+
+            const fromDateTime = new Date(`${date}T${timeFrom}`);
+            const toDateTime = new Date(`${date}T${timeTo}`);
+
+            filteredData = currentData.filter(point => {
+                const pointTime = new Date(point.timestamp);
+                return pointTime >= fromDateTime && pointTime <= toDateTime;
+            });
+
+            if (filteredData.length === 0) {
+                alert('No data in selected time range');
+                filteredData = [...currentData];
+                return;
+            }
+
+            updateVisualization();
+            updateStats();
+        }
+
+        function clearTimeFilter() {
+            filteredData = [...currentData];
+            document.getElementById('timeFrom').value = '';
+            document.getElementById('timeTo').value = '';
+            updateVisualization();
+            updateStats();
+        }
+
+        // Update visualization
+        function updateVisualization() {
+            // Clear existing layers
+            markersLayer.clearLayers();
+            routeLayer.clearLayers();
+            if (heatLayer) {
+                map.removeLayer(heatLayer);
+                heatLayer = null;
+            }
+
+            if (filteredData.length === 0) return;
+
+            // Helper function to get signal color based on RSRP and RSRQ
+            // Uses OR logic - if either metric is good enough, classify in that tier
+            function getSignalColor(rsrp, rsrq) {
+                // Default to gray if no data
+                if (rsrp === null && rsrq === null) return '#808080';
+
+                // Unusable: Both metrics are very poor
+                if ((rsrp === null || rsrp < -120) && (rsrq === null || rsrq < -20)) {
+                    return '#808080'; // Gray - Unusable
+                }
+
+                // Green (16-QAM): Either RSRP ≥ -95 OR RSRQ ≥ -10
+                if ((rsrp !== null && rsrp >= -95) || (rsrq !== null && rsrq >= -10)) {
+                    return '#00ff00'; // Green - 16-QAM possible
+                }
+
+                // Yellow (Better): Either RSRP ≥ -105 OR RSRQ ≥ -13
+                if ((rsrp !== null && rsrp >= -105) || (rsrq !== null && rsrq >= -13)) {
+                    return '#ffff00'; // Yellow - Better signal
+                }
+
+                // Red (QPSK): Either RSRP ≥ -115 OR RSRQ ≥ -17
+                if ((rsrp !== null && rsrp >= -115) || (rsrq !== null && rsrq >= -17)) {
+                    return '#ff0000'; // Red - QPSK reception
+                }
+
+                // Below all thresholds
+                return '#808080'; // Gray - Unusable
+            }
+
+            // Create markers
+            filteredData.forEach((point, idx) => {
+                if (!point.location.latitude || !point.location.longitude) return;
+
+                const lat = parseFloat(point.location.latitude);
+                const lon = parseFloat(point.location.longitude);
+                const rsrp = point.signal.rsrp;
+                const rsrq = point.signal.rsrq;
+                const color = getSignalColor(rsrp, rsrq);
+
+                const marker = L.circleMarker([lat, lon], {
+                    radius: 7,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                });
+
+                const time = new Date(point.timestamp).toLocaleTimeString();
+                let popupContent = `<div style="font-size: 13px; line-height: 1.6;">`;
+                popupContent += `<b style="font-size: 14px;">📍 Point ${idx + 1}</b><br>`;
+                popupContent += `<div style="margin-top: 8px;">`;
+                popupContent += `⏰ ${time}<br>`;
+                popupContent += `📌 ${lat.toFixed(6)}, ${lon.toFixed(6)}</div>`;
+
+                // Signal Strength Section
+                popupContent += `<div style="margin-top: 8px; padding: 4px; background: #f0f0f0; border-radius: 4px;">`;
+                popupContent += `<b>📶 Signal Strength:</b><br>`;
+                popupContent += `RSRP: <b>${rsrp !== null ? rsrp + ' dBm' : 'N/A'}</b><br>`;
+                if (point.signal.rssi !== null) popupContent += `RSSI: ${point.signal.rssi} dBm<br>`;
+                if (point.signal.rsrq !== null) popupContent += `RSRQ: ${point.signal.rsrq} dB`;
+                popupContent += `</div>`;
+
+                // Cell Tower Section
+                popupContent += `<div style="margin-top: 8px; padding: 4px; background: #e8f4f8; border-radius: 4px;">`;
+                popupContent += `<b>🗼 Cell Tower:</b><br>`;
+                popupContent += `PCI: <b>${point.lte.pci || 'N/A'}</b><br>`;
+                popupContent += `Cell ID: ${point.lte.ci || 'N/A'}<br>`;
+                popupContent += `Network: ${point.lte.mcc || '?'}-${point.lte.mnc || '?'}`;
+                popupContent += `</div></div>`;
+
+                marker.bindPopup(popupContent);
+                markersLayer.addLayer(marker);
+            });
+
+            // Create route
+            const routeCoords = filteredData
+                .filter(p => p.location.latitude && p.location.longitude)
+                .map(p => [parseFloat(p.location.latitude), parseFloat(p.location.longitude)]);
+
+            if (routeCoords.length > 1) {
+                const routeLine = L.polyline(routeCoords, {
+                    color: '#667eea',
+                    weight: 4,
+                    opacity: 0.7,
+                    dashArray: '10, 5'
+                });
+                routeLayer.addLayer(routeLine);
+            }
+
+            // Create heatmap based on combined RSRP + RSRQ classification
+            const heatmapData = filteredData
+                .filter(p => p.location.latitude && p.location.longitude &&
+                           (p.signal.rsrp !== null || p.signal.rsrq !== null))
+                .map(p => {
+                    const rsrp = p.signal.rsrp;
+                    const rsrq = p.signal.rsrq;
+
+                    // Calculate intensity based on combined metrics
+                    // Use the better of the two metrics (OR logic)
+                    let intensity = 0;
+
+                    // RSRP contribution (range: -120 to -60 dBm)
+                    if (rsrp !== null) {
+                        const rsrpIntensity = (rsrp - (-120)) / ((-60) - (-120));
+                        intensity = Math.max(intensity, rsrpIntensity);
+                    }
+
+                    // RSRQ contribution (range: -20 to -3 dB)
+                    if (rsrq !== null) {
+                        const rsrqIntensity = (rsrq - (-20)) / ((-3) - (-20));
+                        intensity = Math.max(intensity, rsrqIntensity);
+                    }
+
+                    return [
+                        parseFloat(p.location.latitude),
+                        parseFloat(p.location.longitude),
+                        Math.max(0, Math.min(1, intensity))
+                    ];
+                });
+
+            if (heatmapData.length > 0) {
+                heatLayer = L.heatLayer(heatmapData, {
+                    radius: 30,
+                    blur: 20,
+                    maxZoom: 17,
+                    max: 1.0,
+                    gradient: {
+                        0.0: '#808080',   // Unusable - Gray
+                        0.083: '#808080', // -115 dBm / -17 dB boundary
+                        0.084: '#ff0000', // QPSK reception - Red
+                        0.249: '#ff0000', // -105 dBm / -13 dB boundary
+                        0.25: '#ffff00',  // Better signal - Yellow
+                        0.416: '#ffff00', // -95 dBm / -10 dB boundary
+                        0.417: '#00ff00', // 16-QAM possible - Green
+                        1.0: '#00ff00'    // Best signal
+                    }
+                });
+
+                if (showHeatmap) {
+                    heatLayer.addTo(map);
+                }
+                document.getElementById('legend').style.display = 'block';
+            }
+
+            // Apply layer visibility
+            if (showMarkers) {
+                markersLayer.addTo(map);
+            } else {
+                map.removeLayer(markersLayer);
+            }
+
+            if (showRoute) {
+                routeLayer.addTo(map);
+            } else {
+                map.removeLayer(routeLayer);
+            }
+
+            // Fit bounds
+            if (routeCoords.length > 0) {
+                map.fitBounds(L.latLngBounds(routeCoords));
+            }
+        }
+
+        // Update stats
+        function updateStats() {
+            if (filteredData.length === 0) {
+                document.getElementById('sessionStats').innerHTML = '<p>No data</p>';
+                return;
+            }
+
+            const start = new Date(filteredData[0].timestamp);
+            const end = new Date(filteredData[filteredData.length - 1].timestamp);
+            const duration = (end - start) / 1000 / 60; // minutes
+
+            const rsrpValues = filteredData
+                .map(p => p.signal.rsrp)
+                .filter(v => v !== null);
+
+            let html = `<p><strong>Points:</strong> ${filteredData.length}</p>`;
+            html += `<p><strong>Duration:</strong> ${Math.round(duration)}min</p>`;
+
+            if (rsrpValues.length > 0) {
+                const avgRsrp = Math.round(rsrpValues.reduce((a, b) => a + b, 0) / rsrpValues.length);
+                const minRsrp = Math.min(...rsrpValues);
+                const maxRsrp = Math.max(...rsrpValues);
+                html += `<p><strong>Avg RSRP:</strong> ${avgRsrp} dBm</p>`;
+                html += `<p><strong>Range:</strong> ${minRsrp} to ${maxRsrp} dBm</p>`;
+            }
+
+            document.getElementById('sessionStats').innerHTML = html;
+        }
+
+        // Toggle control panel
+        function toggleControlPanel() {
+            const panel = document.getElementById('controlPanel');
+            const icon = document.getElementById('collapseIcon');
+            panel.classList.toggle('collapsed');
+
+            if (panel.classList.contains('collapsed')) {
+                icon.textContent = '▶';
+            } else {
+                icon.textContent = '◀';
+            }
+        }
+
+        // Toggle functions
+        function toggleHeatmap() {
+            showHeatmap = !showHeatmap;
+            document.getElementById('toggle-heatmap').classList.toggle('active');
+
+            if (heatLayer) {
+                if (showHeatmap) {
+                    heatLayer.addTo(map);
+                } else {
+                    map.removeLayer(heatLayer);
+                }
+            }
+        }
+
+        function toggleRoute() {
+            showRoute = !showRoute;
+            document.getElementById('toggle-route').classList.toggle('active');
+
+            if (showRoute) {
+                routeLayer.addTo(map);
+            } else {
+                map.removeLayer(routeLayer);
+            }
+        }
+
+        function toggleMarkers() {
+            showMarkers = !showMarkers;
+            document.getElementById('toggle-markers').classList.toggle('active');
+
+            if (showMarkers) {
+                markersLayer.addTo(map);
+            } else {
+                map.removeLayer(markersLayer);
+            }
+        }
+
+        // Export to CSV
+        function exportToCSV() {
+            if (!currentSession) {
+                alert('Please select a session first');
+                return;
+            }
+
+            window.location.href = `api/export/${currentSession}`;
+        }
+
+        function refreshSessions() {
+            loadSessions();
+        }
+
+        // Initialize
+        loadSessions();
+    </script>
+</body>
+</html>

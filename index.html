@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CB Monitor - Home</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            font-size: 18px;
+            opacity: 0.95;
+            font-weight: 500;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        .card-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .card h2 {
+            color: #667eea;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .card p {
+            color: #666;
+            line-height: 1.7;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .card-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .card-button:hover {
+            background: #5568d3;
+        }
+
+        .features {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .features h3 {
+            color: #667eea;
+            font-size: 26px;
+            margin-bottom: 25px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+
+        .feature-icon {
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+
+        .feature-content h4 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .feature-content p {
+            color: #555;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .quick-start {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-top: 30px;
+        }
+
+        .quick-start h3 {
+            color: #667eea;
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .quick-start ol {
+            list-style-position: inside;
+            color: #333;
+        }
+
+        .quick-start li {
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .quick-start code {
+            background: #f5f5f5;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: #667eea;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+            opacity: 0.8;
+        }
+
+        .monitor-control {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .monitor-control h3 {
+            color: #667eea;
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .control-btn {
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: white;
+        }
+
+        .control-btn.start {
+            background: #10b981;
+        }
+
+        .control-btn.start:hover {
+            background: #059669;
+        }
+
+        .control-btn.stop {
+            background: #ef4444;
+        }
+
+        .control-btn.stop:hover {
+            background: #dc2626;
+        }
+
+        .control-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .device-status {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .device-status .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .device-status .status-indicator.running {
+            background: #10b981;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+        }
+
+        .device-status .status-indicator.stopped {
+            background: #9ca3af;
+        }
+
+        .device-info {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .device-info strong {
+            color: #334155;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📡 5G Broadcast Monitor</h1>
+            <p>Professional 5G Broadcast signal analysis and coverage mapping tool</p>
+            <p style="font-size: 14px; opacity: 0.85; margin-top: 5px;">Real-time RSRP/RSRQ monitoring • GPS correlation • 16-QAM/QPSK threshold analysis</p>
+        </div>
+
+        <div class="monitor-control">
+            <h3>🎛️ Monitoring Control</h3>
+            <div class="control-buttons">
+                <button class="control-btn start" id="startBtn" onclick="startMonitoring()">▶️ Start Monitoring</button>
+                <button class="control-btn stop" id="stopBtn" onclick="stopMonitoring()" disabled>⏹️ Stop Monitoring</button>
+            </div>
+            <div class="device-status" id="deviceStatus">
+                <div>
+                    <span class="status-indicator stopped" id="statusIndicator"></span>
+                    <strong id="statusText">Monitoring Stopped</strong>
+                </div>
+                <div class="device-info" id="deviceInfo">
+                    Checking for connected devices...
+                </div>
+            </div>
+        </div>
+
+        <div class="cards">
+            <div class="card" onclick="window.location='dashboard.html'">
+                <div class="card-icon">📊</div>
+                <h2>Live Dashboard</h2>
+                <p>Real-time visualization of RSRP, RSRQ, RSSI, and SNR metrics with GPS-correlated route tracking. Updates every 30 seconds with cell tower information (PCI, TAC, CI).</p>
+                <a href="dashboard.html" class="card-button">Open Dashboard</a>
+            </div>
+
+            <div class="card" onclick="window.location='heatmap.html'">
+                <div class="card-icon">🗺️</div>
+                <h2>Coverage Heatmap</h2>
+                <p>RSRP/RSRQ-based coverage analysis with 16-QAM/QPSK modulation thresholds. Interactive time filtering, route visualization, and session comparison capabilities.</p>
+                <a href="heatmap.html" class="card-button">View Heatmap</a>
+            </div>
+
+            <div class="card" onclick="window.location='sessions.html'">
+                <div class="card-icon">📥</div>
+                <h2>Sessions & Export</h2>
+                <p>Browse all captured monitoring sessions with statistics and metadata. Export individual sessions to CSV format with comprehensive network parameters: RSRP, RSRQ, RSSI, SNR, MCC, MNC, TAC, CI, PCI, EARFCN, and GPS coordinates.</p>
+                <a href="sessions.html" class="card-button">View Sessions</a>
+            </div>
+        </div>
+
+        <div class="features">
+            <h3>📋 Technical Capabilities</h3>
+            <div class="features-grid">
+                <div class="feature-item">
+                    <div class="feature-icon">📶</div>
+                    <div class="feature-content">
+                        <h4>5G Broadcast Signal Metrics</h4>
+                        <p>RSRP, RSRQ, RSSI, SNR monitoring via ADB dumpsys telephony.registry with 30-second sampling interval</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">📍</div>
+                    <div class="feature-content">
+                        <h4>GPS Correlation</h4>
+                        <p>High-precision location tracking from dumpsys location service with timestamp synchronization</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🔥</div>
+                    <div class="feature-content">
+                        <h4>Modulation Analysis</h4>
+                        <p>16-QAM (RSRP ≥ -95 dBm) and QPSK (RSRP ≥ -115 dBm) threshold-based heatmap classification</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">📅</div>
+                    <div class="feature-content">
+                        <h4>Session Management</h4>
+                        <p>Automatic JSONL session logging with index generation and temporal filtering capabilities</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">📥</div>
+                    <div class="feature-content">
+                        <h4>Data Export</h4>
+                        <p>CSV export with full parameter set: timestamp, coordinates, signal metrics, and cell tower identifiers</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">🏢</div>
+                    <div class="feature-content">
+                        <h4>Network Parameters</h4>
+                        <p>Complete cell info: MCC, MNC, TAC, CI, PCI, EARFCN extraction from Android telephony API</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="quick-start">
+            <h3>🚀 Getting Started</h3>
+            <ol>
+                <li><strong>Connect Device:</strong> Enable USB debugging on your Android device and connect via USB. Verify connection shows above.</li>
+                <li><strong>Start Monitoring:</strong> Click the "▶️ Start Monitoring" button above to begin data capture at 30-second intervals.</li>
+                <li><strong>Live Monitoring:</strong> Open the <a href="dashboard.html">Live Dashboard</a> to view real-time signal metrics and GPS position.</li>
+                <li><strong>Stop & Save:</strong> Click "⏹️ Stop Monitoring" to end the session. Data is automatically saved to JSONL format.</li>
+                <li><strong>Analysis:</strong> Use the <a href="heatmap.html">Coverage Heatmap</a> to visualize RSRP/RSRQ with modulation threshold overlays.</li>
+                <li><strong>Export:</strong> Export sessions to CSV format with all network parameters for post-processing and reporting.</li>
+            </ol>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.95); border-radius: 15px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); margin-top: 30px;">
+            <h3 style="color: #667eea; margin-bottom: 15px; text-align: center;">📊 Signal Classification</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; font-size: 13px;">
+                <div style="background: #f0fdf4; padding: 12px; border-radius: 8px; border-left: 4px solid #00ff00;">
+                    <strong style="color: #00aa00;">🟩 16-QAM Capable</strong><br>
+                    <span style="color: #666;">RSRP ≥ -95 dBm OR RSRQ ≥ -10 dB</span>
+                </div>
+                <div style="background: #fefce8; padding: 12px; border-radius: 8px; border-left: 4px solid #ffff00;">
+                    <strong style="color: #aa8800;">🟨 Better Signal</strong><br>
+                    <span style="color: #666;">RSRP ≥ -105 dBm OR RSRQ ≥ -13 dB</span>
+                </div>
+                <div style="background: #fef2f2; padding: 12px; border-radius: 8px; border-left: 4px solid #ff0000;">
+                    <strong style="color: #cc0000;">🟥 QPSK Reception</strong><br>
+                    <span style="color: #666;">RSRP ≥ -115 dBm OR RSRQ ≥ -17 dB</span>
+                </div>
+                <div style="background: #f3f4f6; padding: 12px; border-radius: 8px; border-left: 4px solid #808080;">
+                    <strong style="color: #666;">⚫ Unusable</strong><br>
+                    <span style="color: #666;">RSRP &lt; -120 dBm AND RSRQ &lt; -20 dB</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>5G Broadcast Monitor v1.0 | Professional Coverage Analysis Tool</p>
+            <p style="font-size: 12px; opacity: 0.7; margin-top: 5px;">Android ADB • Leaflet.js Visualization • JSONL Data Storage • Python Backend</p>
+        </div>
+    </div>
+
+    <script>
+        // Check status on page load and periodically
+        async function checkStatus() {
+            try {
+                // Add cache-busting parameter
+                const response = await fetch('/api/monitor/status?' + new Date().getTime());
+                const data = await response.json();
+
+                console.log('Status update:', data); // Debug logging
+
+                const startBtn = document.getElementById('startBtn');
+                const stopBtn = document.getElementById('stopBtn');
+                const statusIndicator = document.getElementById('statusIndicator');
+                const statusText = document.getElementById('statusText');
+                const deviceInfo = document.getElementById('deviceInfo');
+
+                // Update UI based on status
+                if (data.running) {
+                    startBtn.disabled = true;
+                    startBtn.textContent = '▶️ Start Monitoring';
+                    stopBtn.disabled = false;
+                    stopBtn.textContent = '⏹️ Stop Monitoring';
+                    statusIndicator.className = 'status-indicator running';
+                    statusText.textContent = 'Monitoring Active';
+                } else {
+                    startBtn.disabled = false;
+                    startBtn.textContent = '▶️ Start Monitoring';
+                    stopBtn.disabled = true;
+                    stopBtn.textContent = '⏹️ Stop Monitoring';
+                    statusIndicator.className = 'status-indicator stopped';
+                    statusText.textContent = 'Monitoring Stopped';
+                }
+
+                // Update device info
+                if (data.device) {
+                    deviceInfo.innerHTML = `<strong>📱 Connected Device:</strong> ${data.device.model}`;
+                } else {
+                    deviceInfo.innerHTML = '⚠️ No device connected. Connect phone via USB and enable USB debugging.';
+                }
+            } catch (error) {
+                console.error('Status check failed:', error);
+            }
+        }
+
+        async function startMonitoring() {
+            const startBtn = document.getElementById('startBtn');
+            startBtn.disabled = true;
+            startBtn.textContent = '⏳ Starting...';
+
+            try {
+                const response = await fetch('/api/monitor/start', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    setTimeout(checkStatus, 1000);
+                } else {
+                    alert('Failed to start monitoring: ' + (data.error || 'Unknown error'));
+                    startBtn.disabled = false;
+                    startBtn.textContent = '▶️ Start Monitoring';
+                }
+            } catch (error) {
+                alert('Failed to start monitoring: ' + error.message);
+                startBtn.disabled = false;
+                startBtn.textContent = '▶️ Start Monitoring';
+            }
+        }
+
+        async function stopMonitoring() {
+            const stopBtn = document.getElementById('stopBtn');
+            stopBtn.disabled = true;
+            stopBtn.textContent = '⏳ Stopping...';
+
+            try {
+                const response = await fetch('/api/monitor/stop', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    setTimeout(checkStatus, 1000);
+                } else {
+                    alert('Failed to stop monitoring: ' + (data.error || 'Unknown error'));
+                    stopBtn.disabled = false;
+                    stopBtn.textContent = '⏹️ Stop Monitoring';
+                }
+            } catch (error) {
+                alert('Failed to stop monitoring: ' + error.message);
+                stopBtn.disabled = false;
+                stopBtn.textContent = '⏹️ Stop Monitoring';
+            }
+        }
+
+        // Check status on load and every 3 seconds
+        checkStatus();
+        setInterval(checkStatus, 3000);
+    </script>
+</body>
+</html>

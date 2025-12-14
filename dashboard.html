@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>5G Broadcast Monitor - Live Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: auto 1fr 1fr;
+            gap: 10px;
+            padding: 10px;
+            height: 100vh;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-buttons a {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .nav-buttons a:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card h2 {
+            font-size: 16px;
+            color: #667eea;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+        }
+
+        .map-container {
+            grid-row: 2 / 4;
+            grid-column: 1 / 2;
+        }
+
+        #map {
+            height: calc(100% - 35px);
+            border-radius: 5px;
+        }
+
+        .signal-gauges {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            height: calc(100% - 35px);
+        }
+
+        .gauge-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .gauge {
+            position: relative;
+            width: 100px;
+            height: 100px;
+        }
+
+        .gauge svg {
+            transform: rotate(-90deg);
+        }
+
+        .gauge-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .gauge-label {
+            margin-top: 5px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .gauge-unit {
+            font-size: 10px;
+            color: #666;
+        }
+
+        .network-info {
+            grid-column: 3 / 4;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 12px;
+            height: calc(100% - 35px);
+            overflow-y: auto;
+        }
+
+        .info-item {
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 5px;
+            border-left: 3px solid #667eea;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 11px;
+        }
+
+        .info-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: #333;
+            margin-top: 2px;
+        }
+
+        .session-info {
+            grid-column: 2 / 4;
+            grid-row: 3 / 4;
+        }
+
+        .session-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            height: calc(100% - 35px);
+        }
+
+        .session-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+
+        .session-card h3 {
+            font-size: 12px;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .session-card .value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .session-card .label {
+            font-size: 11px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .last-update {
+            font-size: 12px;
+            color: #666;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📡 5G Broadcast Monitor - Live Dashboard</h1>
+            <div class="nav-buttons">
+                <a href="index.html">🏠 Home</a>
+                <a href="heatmap.html">🗺️ Heatmap</a>
+            </div>
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                <span>Live Monitoring</span>
+                <span class="last-update" id="lastUpdate">Updated: --:--:--</span>
+            </div>
+        </div>
+
+        <div class="card map-container">
+            <h2>📍 Location</h2>
+            <div id="map"></div>
+        </div>
+
+        <div class="card">
+            <h2>📶 Signal Strength</h2>
+            <div class="signal-gauges">
+                <div class="gauge-container">
+                    <div class="gauge">
+                        <svg width="100" height="100">
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="#e5e7eb" stroke-width="8"/>
+                            <circle id="rssi-circle" cx="50" cy="50" r="45" fill="none" stroke="#10b981" stroke-width="8"
+                                    stroke-dasharray="283" stroke-dashoffset="283" stroke-linecap="round"/>
+                        </svg>
+                        <div class="gauge-value" id="rssi-value">--</div>
+                    </div>
+                    <div class="gauge-label">RSSI <span class="gauge-unit">dBm</span></div>
+                </div>
+
+                <div class="gauge-container">
+                    <div class="gauge">
+                        <svg width="100" height="100">
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="#e5e7eb" stroke-width="8"/>
+                            <circle id="rsrp-circle" cx="50" cy="50" r="45" fill="none" stroke="#3b82f6" stroke-width="8"
+                                    stroke-dasharray="283" stroke-dashoffset="283" stroke-linecap="round"/>
+                        </svg>
+                        <div class="gauge-value" id="rsrp-value">--</div>
+                    </div>
+                    <div class="gauge-label">RSRP <span class="gauge-unit">dBm</span></div>
+                </div>
+
+                <div class="gauge-container">
+                    <div class="gauge">
+                        <svg width="100" height="100">
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="#e5e7eb" stroke-width="8"/>
+                            <circle id="rsrq-circle" cx="50" cy="50" r="45" fill="none" stroke="#8b5cf6" stroke-width="8"
+                                    stroke-dasharray="283" stroke-dashoffset="283" stroke-linecap="round"/>
+                        </svg>
+                        <div class="gauge-value" id="rsrq-value">--</div>
+                    </div>
+                    <div class="gauge-label">RSRQ <span class="gauge-unit">dB</span></div>
+                </div>
+
+                <div class="gauge-container">
+                    <div class="gauge">
+                        <svg width="100" height="100">
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="#e5e7eb" stroke-width="8"/>
+                            <circle id="snr-circle" cx="50" cy="50" r="45" fill="none" stroke="#f59e0b" stroke-width="8"
+                                    stroke-dasharray="283" stroke-dashoffset="283" stroke-linecap="round"/>
+                        </svg>
+                        <div class="gauge-value" id="snr-value">--</div>
+                    </div>
+                    <div class="gauge-label">SNR <span class="gauge-unit">dB</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card network-info">
+            <h2>🌐 Network Parameters</h2>
+            <div class="info-grid" id="networkInfo">
+                <div class="info-item">
+                    <div class="info-label">MCC/MNC</div>
+                    <div class="info-value" id="mcc-mnc">--/--</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">TAC</div>
+                    <div class="info-value" id="tac">--</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Cell ID</div>
+                    <div class="info-value" id="ci">--</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">PCI</div>
+                    <div class="info-value" id="pci">--</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">EARFCN</div>
+                    <div class="info-value" id="earfcn">--</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Latitude</div>
+                    <div class="info-value" id="lat">--</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Longitude</div>
+                    <div class="info-value" id="lon">--</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Status</div>
+                    <div class="info-value" id="status" style="font-size: 11px;">Waiting...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card session-info">
+            <h2>📊 Session Statistics</h2>
+            <div class="session-grid">
+                <div class="session-card">
+                    <h3>Data Points</h3>
+                    <div class="value" id="points-count">0</div>
+                    <div class="label">Captured</div>
+                </div>
+                <div class="session-card">
+                    <h3>Signal Range</h3>
+                    <div class="value" id="signal-range" style="font-size: 20px;">-- / --</div>
+                    <div class="label">Min / Max RSSI</div>
+                </div>
+                <div class="session-card">
+                    <h3>Coverage</h3>
+                    <div class="value" id="coverage" style="font-size: 20px;">--</div>
+                    <div class="label">Distance (m)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([59.437, 24.745], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        let marker = null;
+        let locationHistory = [];
+        let polyline = null;
+        let pointCount = 0;
+        let rssiValues = [];
+        let currentSessionId = null;
+        let sessionLoaded = false;
+
+        // Update gauge
+        function updateGauge(id, value, min, max) {
+            const circle = document.getElementById(id + '-circle');
+            const valueEl = document.getElementById(id + '-value');
+
+            if (value === null || value === '-' || value === undefined) {
+                valueEl.textContent = '--';
+                circle.style.strokeDashoffset = '283';
+                return;
+            }
+
+            valueEl.textContent = value;
+
+            // Calculate percentage
+            let percentage;
+            if (min < 0) {
+                percentage = ((value - min) / (max - min)) * 100;
+            } else {
+                percentage = (value / max) * 100;
+            }
+
+            const circumference = 283;
+            const offset = circumference - (circumference * percentage / 100);
+            circle.style.strokeDashoffset = offset;
+        }
+
+        // Update location
+        function updateLocation(lat, lon) {
+            if (lat && lon && lat !== '-' && lon !== '-' && lat !== null && lon !== null) {
+                const latNum = parseFloat(lat);
+                const lonNum = parseFloat(lon);
+
+                if (!marker) {
+                    marker = L.marker([latNum, lonNum]).addTo(map);
+                    map.setView([latNum, lonNum], 15);
+                } else {
+                    marker.setLatLng([latNum, lonNum]);
+                }
+
+                locationHistory.push([latNum, lonNum]);
+                if (locationHistory.length > 100) locationHistory.shift();
+
+                if (polyline) {
+                    map.removeLayer(polyline);
+                }
+                polyline = L.polyline(locationHistory, {color: '#667eea', weight: 3, opacity: 0.7}).addTo(map);
+            }
+        }
+
+        // Calculate distance between two points (Haversine formula)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Earth radius in meters
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return R * c;
+        }
+
+        // Update session stats
+        function updateStats() {
+            document.getElementById('points-count').textContent = pointCount;
+
+            if (rssiValues.length > 0) {
+                const minRssi = Math.min(...rssiValues);
+                const maxRssi = Math.max(...rssiValues);
+                document.getElementById('signal-range').textContent = `${minRssi} / ${maxRssi}`;
+            }
+
+            if (locationHistory.length > 1) {
+                let totalDist = 0;
+                for (let i = 1; i < locationHistory.length; i++) {
+                    totalDist += calculateDistance(
+                        locationHistory[i-1][0], locationHistory[i-1][1],
+                        locationHistory[i][0], locationHistory[i][1]
+                    );
+                }
+                document.getElementById('coverage').textContent = Math.round(totalDist);
+            }
+        }
+
+        // Load current session data
+        async function loadCurrentSession() {
+            try {
+                // Get the current session ID from status.json
+                const statusResponse = await fetch('data/status.json?' + new Date().getTime());
+                if (!statusResponse.ok) return;
+
+                const statusData = await statusResponse.json();
+                const sessionId = statusData.session_id;
+
+                if (!sessionId || sessionId === currentSessionId) return;
+
+                currentSessionId = sessionId;
+
+                // Load all data from the session file
+                const sessionResponse = await fetch(`logs/${sessionId}.jsonl?` + new Date().getTime());
+                if (!sessionResponse.ok) return;
+
+                const sessionText = await sessionResponse.text();
+                const lines = sessionText.trim().split('\n');
+
+                // Reset statistics
+                pointCount = 0;
+                rssiValues = [];
+                locationHistory = [];
+
+                // Process all data points
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+
+                    const point = JSON.parse(line);
+                    pointCount++;
+
+                    if (point.signal.rssi !== null) {
+                        rssiValues.push(point.signal.rssi);
+                    }
+
+                    if (point.location.latitude && point.location.longitude) {
+                        locationHistory.push([
+                            parseFloat(point.location.latitude),
+                            parseFloat(point.location.longitude)
+                        ]);
+                    }
+                }
+
+                updateStats();
+
+                // Update map with loaded route
+                if (locationHistory.length > 0) {
+                    // Set marker to latest position
+                    const lastPos = locationHistory[locationHistory.length - 1];
+                    if (!marker) {
+                        marker = L.marker(lastPos).addTo(map);
+                        map.setView(lastPos, 15);
+                    } else {
+                        marker.setLatLng(lastPos);
+                    }
+
+                    // Draw route
+                    if (polyline) {
+                        map.removeLayer(polyline);
+                    }
+                    polyline = L.polyline(locationHistory, {color: '#667eea', weight: 3, opacity: 0.7}).addTo(map);
+                }
+
+                sessionLoaded = true;
+
+            } catch (error) {
+                console.error('Error loading session:', error);
+            }
+        }
+
+        // Fetch status data
+        async function fetchStatusData() {
+            try {
+                const response = await fetch('data/status.json?' + new Date().getTime());
+                if (!response.ok) {
+                    document.getElementById('status').textContent = 'No data';
+                    return;
+                }
+
+                const data = await response.json();
+
+                // Load session data on first run
+                if (!sessionLoaded) {
+                    await loadCurrentSession();
+                }
+
+                // Update gauges
+                const rssi = data.signal.rssi;
+                const rsrp = data.signal.rsrp;
+                const rsrq = data.signal.rsrq;
+                const snr = data.signal.snr;
+
+                updateGauge('rssi', rssi, -120, -40);
+                updateGauge('rsrp', rsrp, -140, -80);
+                updateGauge('rsrq', rsrq, -20, -3);
+                updateGauge('snr', snr, -10, 30);
+
+                // Update network info
+                document.getElementById('mcc-mnc').textContent = `${data.lte.mcc}/${data.lte.mnc}`;
+                document.getElementById('tac').textContent = data.lte.tac;
+                document.getElementById('ci').textContent = data.lte.ci;
+                document.getElementById('pci').textContent = data.lte.pci;
+                document.getElementById('earfcn').textContent = data.lte.earfcn;
+                document.getElementById('lat').textContent = data.location.latitude || '--';
+                document.getElementById('lon').textContent = data.location.longitude || '--';
+                document.getElementById('status').textContent = 'Monitoring';
+
+                // Update location
+                updateLocation(data.location.latitude, data.location.longitude);
+
+                // Update stats only if session is already loaded (to avoid double counting)
+                if (sessionLoaded) {
+                    pointCount++;
+                    if (rssi !== null) rssiValues.push(rssi);
+                    updateStats();
+                }
+
+                // Update timestamp
+                document.getElementById('lastUpdate').textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+
+            } catch (error) {
+                console.error('Error fetching status:', error);
+                document.getElementById('status').textContent = 'Error';
+            }
+        }
+
+        // Start monitoring
+        fetchStatusData();
+        setInterval(fetchStatusData, 2000);
+    </script>
+</body>
+</html>

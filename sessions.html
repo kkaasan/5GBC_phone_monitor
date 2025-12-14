@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CB Monitor - Sessions & Export</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #667eea;
+            font-size: 32px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .nav-links a {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .nav-links a:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+        }
+
+        .stats-summary {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .sessions-container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .sessions-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .sessions-header h2 {
+            color: #667eea;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .refresh-btn {
+            padding: 10px 20px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #0ea970;
+        }
+
+        .session-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s;
+        }
+
+        .session-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateX(3px);
+        }
+
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .session-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .session-date {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .session-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .export-btn {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .export-btn:hover {
+            background: #d97706;
+        }
+
+        .view-btn {
+            background: #667eea;
+            color: white;
+        }
+
+        .view-btn:hover {
+            background: #5568d3;
+        }
+
+        .session-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+        }
+
+        .session-stat {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .session-stat strong {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 16px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📥 Data Sessions & Export</h1>
+            <p>Browse captured monitoring sessions and export data to CSV format</p>
+            <div class="nav-links">
+                <a href="index.html">🏠 Home</a>
+                <a href="dashboard.html">📊 Live Dashboard</a>
+                <a href="heatmap.html">🗺️ Coverage Heatmap</a>
+            </div>
+        </div>
+
+        <div class="stats-summary" id="statsSummary">
+            <div class="stat-item">
+                <div class="stat-value" id="totalSessions">-</div>
+                <div class="stat-label">Total Sessions</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="totalPoints">-</div>
+                <div class="stat-label">Data Points</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="totalDuration">-</div>
+                <div class="stat-label">Total Duration</div>
+            </div>
+        </div>
+
+        <div class="sessions-container">
+            <div class="sessions-header">
+                <h2>Captured Sessions</h2>
+                <button class="refresh-btn" onclick="loadSessions()">🔄 Refresh</button>
+            </div>
+            <div id="sessionsList">
+                <div class="loading">Loading sessions...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadSessions() {
+            try {
+                const response = await fetch('data/data_index.json?' + new Date().getTime());
+                if (!response.ok) {
+                    throw new Error('No sessions found');
+                }
+
+                const index = await response.json();
+                const sessions = index.sessions || [];
+
+                if (sessions.length === 0) {
+                    showEmptyState();
+                    return;
+                }
+
+                // Calculate statistics
+                let totalPoints = 0;
+                let totalDurationMinutes = 0;
+
+                sessions.forEach(session => {
+                    totalPoints += session.count || 0;
+                    // Calculate duration from start and end times
+                    if (session.start_time && session.end_time) {
+                        const start = new Date(session.start_time);
+                        const end = new Date(session.end_time);
+                        const durationMs = end - start;
+                        totalDurationMinutes += durationMs / (1000 * 60); // Convert to minutes
+                    }
+                });
+
+                // Update summary stats
+                document.getElementById('totalSessions').textContent = sessions.length;
+                document.getElementById('totalPoints').textContent = totalPoints.toLocaleString();
+
+                const hours = Math.floor(totalDurationMinutes / 60);
+                const minutes = Math.round(totalDurationMinutes % 60);
+                document.getElementById('totalDuration').textContent = `${hours}h ${minutes}m`;
+
+                // Display sessions (newest first)
+                const sortedSessions = [...sessions].sort((a, b) => b.session_id.localeCompare(a.session_id));
+                displaySessions(sortedSessions);
+
+            } catch (error) {
+                console.error('Failed to load sessions:', error);
+                showEmptyState();
+            }
+        }
+
+        function displaySessions(sessions) {
+            const container = document.getElementById('sessionsList');
+
+            const html = sessions.map(session => {
+                const date = formatSessionDate(session.session_id);
+
+                // Calculate duration from start and end times
+                let duration = 'N/A';
+                if (session.start_time && session.end_time) {
+                    const start = new Date(session.start_time);
+                    const end = new Date(session.end_time);
+                    const durationMs = end - start;
+                    const durationMin = Math.round(durationMs / (1000 * 60));
+                    if (durationMin >= 60) {
+                        const hours = Math.floor(durationMin / 60);
+                        const mins = durationMin % 60;
+                        duration = `${hours}h ${mins}m`;
+                    } else {
+                        duration = `${durationMin} min`;
+                    }
+                }
+
+                // Format start time nicely
+                const startTime = session.start_time ? new Date(session.start_time).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }) : 'N/A';
+
+                return `
+                    <div class="session-card">
+                        <div class="session-header">
+                            <div>
+                                <div class="session-title">📡 ${session.session_id}</div>
+                                <div class="session-date">${date}</div>
+                            </div>
+                            <div class="session-actions">
+                                <button class="action-btn view-btn" onclick="viewInHeatmap('${session.session_id}')">
+                                    🗺️ View Map
+                                </button>
+                                <button class="action-btn export-btn" onclick="exportSession('${session.session_id}')">
+                                    📥 Export CSV
+                                </button>
+                            </div>
+                        </div>
+                        <div class="session-stats">
+                            <div class="session-stat">
+                                <strong>${session.count || 0}</strong> data points
+                            </div>
+                            <div class="session-stat">
+                                <strong>${duration}</strong> duration
+                            </div>
+                            <div class="session-stat">
+                                <strong>${startTime}</strong> start time
+                            </div>
+                            <div class="session-stat">
+                                <strong>${session.bounds && session.bounds.min_lat ? 'Has GPS' : 'No GPS'}</strong> location
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = html;
+        }
+
+        function showEmptyState() {
+            document.getElementById('totalSessions').textContent = '0';
+            document.getElementById('totalPoints').textContent = '0';
+            document.getElementById('totalDuration').textContent = '0h 0m';
+
+            document.getElementById('sessionsList').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <h3>No Sessions Found</h3>
+                    <p>Start monitoring from the <a href="index.html">home page</a> to capture data.<br>
+                    Sessions will appear here once monitoring has been started.</p>
+                </div>
+            `;
+        }
+
+        function formatSessionDate(sessionId) {
+            // Format: YYYYMMDD_HHMMSS
+            const year = sessionId.substr(0, 4);
+            const month = sessionId.substr(4, 2);
+            const day = sessionId.substr(6, 2);
+            const hour = sessionId.substr(9, 2);
+            const minute = sessionId.substr(11, 2);
+            const second = sessionId.substr(13, 2);
+
+            const date = new Date(year, month - 1, day, hour, minute, second);
+            return date.toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function viewInHeatmap(sessionId) {
+            window.location.href = `heatmap.html?session=${sessionId}`;
+        }
+
+        function exportSession(sessionId) {
+            window.location.href = `/api/export/${sessionId}`;
+        }
+
+        // Load sessions on page load
+        loadSessions();
+    </script>
+</body>
+</html>

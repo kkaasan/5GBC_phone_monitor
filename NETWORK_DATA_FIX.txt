@@ -1,0 +1,84 @@
+╔═══════════════════════════════════════════════════════════════╗
+║      🔧 NETWORK DATA CAPTURE - FIXED & IMPROVED              ║
+╚═══════════════════════════════════════════════════════════════╝
+
+📝 ISSUE: Only coordinates showing, no RSSI/network data
+
+✅ FIXED:
+
+1. Improved network data extraction:
+   - Now tries dumpsys telephony.registry first (most reliable)
+   - Falls back to cmd phone cell-info if needed
+   - Better regex patterns for different phone formats
+   - Handles various data formats
+
+2. Added verbose logging:
+   - Shows what it's trying
+   - Shows what it finds
+   - Shows extraction details
+
+3. Better error handling:
+   - Longer timeouts
+   - Multiple fallback methods
+   - Detailed error messages
+
+🔍 DIAGNOSE YOUR PHONE:
+
+Run this first to see what data your phone provides:
+
+   python3 test_phone.py
+
+This will show:
+   ✅ If RSSI/RSRP data is available
+   ✅ If Cell ID, PCI, MCC, MNC are available
+   ✅ What format your phone uses
+   ✅ Sample data from your device
+
+🚀 TRY IT NOW:
+
+1. Diagnose:
+   python3 test_phone.py
+
+2. If test shows data available, run monitor:
+   ./start.sh
+
+3. Watch the [MONITOR] logs - you'll now see:
+   [MONITOR] 📡 Capturing snapshot at 14:30:22...
+   [MONITOR]    Trying dumpsys telephony.registry...
+   [MONITOR]    Found LTE info: CellInfoLte:{...
+   [MONITOR]    Found mcc: 248
+   [MONITOR]    Found mnc: 01
+   [MONITOR]    Found pci: 41
+   [MONITOR]    Found rssi: -75
+   [MONITOR]    Found rsrp: -95
+   [MONITOR]    ✅ Extracted: MCC=248, MNC=01, PCI=41, RSSI=-75
+   [MONITOR]    Getting GPS location...
+   [MONITOR]    ✅ GPS: 59.437, 24.745
+
+📊 WHAT YOU'LL SEE IN LOGS:
+
+Old (only coordinates):
+   [MONITOR] [2025-12-10T14:30:22] RSSI: None | RSRP: None | GPS: 59.437,24.745
+
+New (full data with details):
+   [MONITOR] 📡 Capturing snapshot at 14:30:22...
+   [MONITOR]    Trying dumpsys telephony.registry...
+   [MONITOR]    Found rssi: -75
+   [MONITOR]    ✅ Extracted: MCC=248, MNC=01, PCI=41, RSSI=-75
+   [MONITOR] [2025-12-10T14:30:22] RSSI: -75 | RSRP: -95 | GPS: 59.437,24.745
+
+🎯 IF TEST SHOWS NO DATA:
+
+Some phones don't expose network data via ADB without root.
+
+Alternatives:
+   1. Use NetMonster app on phone (exports to CSV)
+   2. Enable all Developer Options
+   3. Check if SIM card is active with network connection
+   4. Some Motorola phones need specific ADB settings
+
+═══════════════════════════════════════════════════════════════
+
+Run: python3 test_phone.py
+
+═══════════════════════════════════════════════════════════════
