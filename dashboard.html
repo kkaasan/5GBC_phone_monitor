@@ -239,6 +239,26 @@
             color: #666;
         }
 
+        .location-status {
+            font-size: 13px;
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 5px;
+            background: #f0f9ff;
+            color: #0369a1;
+            font-weight: 500;
+        }
+
+        .location-status.warning {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .location-status.stale {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
         ::-webkit-scrollbar {
             width: 6px;
         }
@@ -271,6 +291,7 @@
 
         <div class="card map-container">
             <h2>📍 Location</h2>
+            <div class="location-status" id="locationStatus">Waiting for GPS...</div>
             <div id="map"></div>
         </div>
 
@@ -401,6 +422,34 @@
         let rssiValues = [];
         let currentSessionId = null;
         let sessionLoaded = false;
+        let lastGpsUpdate = null;
+
+        // Create custom gray marker icon for stale GPS
+        const grayIcon = L.icon({
+            iconUrl: 'data:image/svg+xml;base64,' + btoa(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="25" height="41" viewBox="0 0 25 41">
+                    <path d="M12.5 0C5.6 0 0 5.6 0 12.5c0 9.4 12.5 28.5 12.5 28.5S25 21.9 25 12.5C25 5.6 19.4 0 12.5 0z"
+                          fill="#9ca3af" stroke="#6b7280" stroke-width="1.5"/>
+                    <circle cx="12.5" cy="12.5" r="5" fill="#ffffff"/>
+                </svg>
+            `),
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34]
+        });
+
+        const blueIcon = L.icon({
+            iconUrl: 'data:image/svg+xml;base64,' + btoa(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="25" height="41" viewBox="0 0 25 41">
+                    <path d="M12.5 0C5.6 0 0 5.6 0 12.5c0 9.4 12.5 28.5 12.5 28.5S25 21.9 25 12.5C25 5.6 19.4 0 12.5 0z"
+                          fill="#3b82f6" stroke="#1e40af" stroke-width="1.5"/>
+                    <circle cx="12.5" cy="12.5" r="5" fill="#ffffff"/>
+                </svg>
+            `),
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34]
+        });
 
         // Update gauge
         function updateGauge(id, value, min, max) {
@@ -429,16 +478,26 @@
         }
 
         // Update location
-        function updateLocation(lat, lon) {
+        function updateLocation(lat, lon, timestamp) {
             if (lat && lon && lat !== '-' && lon !== '-' && lat !== null && lon !== null) {
                 const latNum = parseFloat(lat);
                 const lonNum = parseFloat(lon);
 
+                // Update GPS timestamp
+                if (timestamp) {
+                    lastGpsUpdate = new Date(timestamp);
+                }
+
+                // Determine if GPS is stale (older than 15 minutes)
+                const isStale = lastGpsUpdate && ((Date.now() - lastGpsUpdate.getTime()) > 15 * 60 * 1000);
+                const markerIcon = isStale ? grayIcon : blueIcon;
+
                 if (!marker) {
-                    marker = L.marker([latNum, lonNum]).addTo(map);
+                    marker = L.marker([latNum, lonNum], {icon: markerIcon}).addTo(map);
                     map.setView([latNum, lonNum], 15);
                 } else {
                     marker.setLatLng([latNum, lonNum]);
+                    marker.setIcon(markerIcon);
                 }
 
                 locationHistory.push([latNum, lonNum]);
@@ -448,6 +507,38 @@
                     map.removeLayer(polyline);
                 }
                 polyline = L.polyline(locationHistory, {color: '#667eea', weight: 3, opacity: 0.7}).addTo(map);
+            }
+        }
+
+        // Update GPS status display
+        function updateGpsStatus() {
+            const statusEl = document.getElementById('locationStatus');
+
+            if (!lastGpsUpdate) {
+                statusEl.textContent = '⏳ Waiting for GPS...';
+                statusEl.className = 'location-status';
+                return;
+            }
+
+            const ageSeconds = Math.floor((Date.now() - lastGpsUpdate.getTime()) / 1000);
+            const ageMinutes = Math.floor(ageSeconds / 60);
+
+            if (ageMinutes >= 15) {
+                // GPS is stale (> 15 minutes old)
+                statusEl.textContent = `⚠️ GPS signal lost (${ageMinutes} min ago) - Check GPS signal`;
+                statusEl.className = 'location-status stale';
+            } else if (ageMinutes >= 5) {
+                // GPS is getting old (5-15 minutes)
+                statusEl.textContent = `⚠️ GPS signal weak (updated ${ageMinutes} min ago)`;
+                statusEl.className = 'location-status warning';
+            } else if (ageSeconds < 60) {
+                // Fresh GPS (< 1 minute)
+                statusEl.textContent = `✓ Location updated ${ageSeconds} seconds ago`;
+                statusEl.className = 'location-status';
+            } else {
+                // GPS is okay (1-5 minutes)
+                statusEl.textContent = `✓ Location updated ${ageMinutes} minute${ageMinutes > 1 ? 's' : ''} ago`;
+                statusEl.className = 'location-status';
             }
         }
 
@@ -541,10 +632,11 @@
                     // Set marker to latest position
                     const lastPos = locationHistory[locationHistory.length - 1];
                     if (!marker) {
-                        marker = L.marker(lastPos).addTo(map);
+                        marker = L.marker(lastPos, {icon: blueIcon}).addTo(map);
                         map.setView(lastPos, 15);
                     } else {
                         marker.setLatLng(lastPos);
+                        marker.setIcon(blueIcon);
                     }
 
                     // Draw route
@@ -599,7 +691,10 @@
                 document.getElementById('status').textContent = 'Monitoring';
 
                 // Update location
-                updateLocation(data.location.latitude, data.location.longitude);
+                updateLocation(data.location.latitude, data.location.longitude, data.timestamp);
+
+                // Update GPS status display
+                updateGpsStatus();
 
                 // Update stats only if session is already loaded (to avoid double counting)
                 if (sessionLoaded) {
@@ -620,6 +715,9 @@
         // Start monitoring
         fetchStatusData();
         setInterval(fetchStatusData, 2000);
+
+        // Update GPS status display every 5 seconds to keep time current
+        setInterval(updateGpsStatus, 5000);
     </script>
 </body>
 </html>
