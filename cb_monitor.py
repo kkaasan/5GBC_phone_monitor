@@ -445,6 +445,11 @@ class CBMonitor:
         # Save session
         self.stop_session()
 
+        # Clear status.json to prevent dashboard from showing stale data
+        if STATUS_FILE.exists():
+            STATUS_FILE.unlink()
+            print("   Cleared status file")
+
         return True
 
 def export_to_csv(session_id, output_file=None):

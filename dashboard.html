@@ -694,11 +694,23 @@
             try {
                 const response = await fetch('data/status.json?' + new Date().getTime());
                 if (!response.ok) {
-                    document.getElementById('status').textContent = 'No data';
+                    document.getElementById('status').textContent = '⭕ Monitoring Not Running';
+                    document.getElementById('lastUpdate').textContent = 'Start monitoring from home page';
                     return;
                 }
 
                 const data = await response.json();
+
+                // Check if data is stale (older than 2 minutes)
+                const dataTimestamp = new Date(data.timestamp);
+                const dataAge = (Date.now() - dataTimestamp.getTime()) / 1000; // seconds
+
+                if (dataAge > 120) {
+                    // Data is stale - monitoring likely stopped
+                    document.getElementById('status').textContent = `⚠️ Monitoring Stopped (${Math.floor(dataAge / 60)} min ago)`;
+                    document.getElementById('lastUpdate').textContent = `Last data: ${dataTimestamp.toLocaleTimeString()}`;
+                    return; // Don't update gauges with stale data
+                }
 
                 // Load session data on first run
                 if (!sessionLoaded) {
@@ -724,7 +736,7 @@
                 document.getElementById('earfcn').textContent = data.lte.earfcn;
                 document.getElementById('lat').textContent = data.location.latitude || '--';
                 document.getElementById('lon').textContent = data.location.longitude || '--';
-                document.getElementById('status').textContent = 'Monitoring';
+                document.getElementById('status').textContent = '🟢 Monitoring Active';
 
                 // Update location
                 updateLocation(data.location.latitude, data.location.longitude, data.timestamp);
