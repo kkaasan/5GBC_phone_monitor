@@ -423,6 +423,8 @@
         let currentSessionId = null;
         let sessionLoaded = false;
         let lastGpsUpdate = null;
+        let lastKnownLat = null;
+        let lastKnownLon = null;
 
         // Create custom gray marker icon for stale GPS
         const grayIcon = L.icon({
@@ -483,9 +485,19 @@
                 const latNum = parseFloat(lat);
                 const lonNum = parseFloat(lon);
 
-                // Update GPS timestamp
-                if (timestamp) {
+                // Check if coordinates have actually changed (movement detected)
+                const coordinatesChanged = (lastKnownLat !== latNum || lastKnownLon !== lonNum);
+
+                // Update GPS timestamp only when coordinates change
+                if (coordinatesChanged && timestamp) {
                     lastGpsUpdate = new Date(timestamp);
+                    lastKnownLat = latNum;
+                    lastKnownLon = lonNum;
+                } else if (!lastGpsUpdate && timestamp) {
+                    // First GPS fix
+                    lastGpsUpdate = new Date(timestamp);
+                    lastKnownLat = latNum;
+                    lastKnownLon = lonNum;
                 }
 
                 // Determine if GPS is stale (older than 15 minutes)
@@ -500,13 +512,16 @@
                     marker.setIcon(markerIcon);
                 }
 
-                locationHistory.push([latNum, lonNum]);
-                if (locationHistory.length > 100) locationHistory.shift();
+                // Only add to history if coordinates changed
+                if (coordinatesChanged) {
+                    locationHistory.push([latNum, lonNum]);
+                    if (locationHistory.length > 100) locationHistory.shift();
 
-                if (polyline) {
-                    map.removeLayer(polyline);
+                    if (polyline) {
+                        map.removeLayer(polyline);
+                    }
+                    polyline = L.polyline(locationHistory, {color: '#667eea', weight: 3, opacity: 0.7}).addTo(map);
                 }
-                polyline = L.polyline(locationHistory, {color: '#667eea', weight: 3, opacity: 0.7}).addTo(map);
             }
         }
 
@@ -524,20 +539,20 @@
             const ageMinutes = Math.floor(ageSeconds / 60);
 
             if (ageMinutes >= 15) {
-                // GPS is stale (> 15 minutes old)
-                statusEl.textContent = `⚠️ GPS signal lost (${ageMinutes} min ago) - Check GPS signal`;
+                // No movement for > 15 minutes
+                statusEl.textContent = `⚠️ No movement detected for ${ageMinutes} min - Check GPS signal`;
                 statusEl.className = 'location-status stale';
             } else if (ageMinutes >= 5) {
-                // GPS is getting old (5-15 minutes)
-                statusEl.textContent = `⚠️ GPS signal weak (updated ${ageMinutes} min ago)`;
+                // No movement for 5-15 minutes
+                statusEl.textContent = `⚠️ No movement for ${ageMinutes} min - GPS may be weak`;
                 statusEl.className = 'location-status warning';
             } else if (ageSeconds < 60) {
-                // Fresh GPS (< 1 minute)
-                statusEl.textContent = `✓ Location updated ${ageSeconds} seconds ago`;
+                // Recent movement (< 1 minute)
+                statusEl.textContent = `✓ Latest movement detected ${ageSeconds} second${ageSeconds !== 1 ? 's' : ''} ago`;
                 statusEl.className = 'location-status';
             } else {
-                // GPS is okay (1-5 minutes)
-                statusEl.textContent = `✓ Location updated ${ageMinutes} minute${ageMinutes > 1 ? 's' : ''} ago`;
+                // Movement within 1-5 minutes
+                statusEl.textContent = `✓ Latest movement detected ${ageMinutes} minute${ageMinutes > 1 ? 's' : ''} ago`;
                 statusEl.className = 'location-status';
             }
         }
@@ -607,6 +622,10 @@
                 locationHistory = [];
 
                 // Process all data points
+                let lastTimestamp = null;
+                let lastLat = null;
+                let lastLon = null;
+
                 for (const line of lines) {
                     if (!line.trim()) continue;
 
@@ -618,11 +637,24 @@
                     }
 
                     if (point.location.latitude && point.location.longitude) {
-                        locationHistory.push([
-                            parseFloat(point.location.latitude),
-                            parseFloat(point.location.longitude)
-                        ]);
+                        const lat = parseFloat(point.location.latitude);
+                        const lon = parseFloat(point.location.longitude);
+
+                        // Track movement - only add to history if position changed
+                        if (lastLat === null || lastLon === null || lastLat !== lat || lastLon !== lon) {
+                            locationHistory.push([lat, lon]);
+                            lastTimestamp = point.timestamp;
+                            lastLat = lat;
+                            lastLon = lon;
+                        }
                     }
+                }
+
+                // Set the last movement time from loaded session
+                if (lastTimestamp) {
+                    lastGpsUpdate = new Date(lastTimestamp);
+                    lastKnownLat = lastLat;
+                    lastKnownLon = lastLon;
                 }
 
                 updateStats();
@@ -645,6 +677,9 @@
                     }
                     polyline = L.polyline(locationHistory, {color: '#667eea', weight: 3, opacity: 0.7}).addTo(map);
                 }
+
+                // Update GPS status after loading session
+                updateGpsStatus();
 
                 sessionLoaded = true;
 
