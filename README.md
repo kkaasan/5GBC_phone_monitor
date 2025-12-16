@@ -2,7 +2,7 @@
 
 Professional 5G Broadcast signal analysis and coverage mapping tool for real-time RSRP/RSRQ monitoring with GPS correlation and modulation threshold analysis.
 
-![Version](https://img.shields.io/badge/version-1.0-blue)
+![Version](https://img.shields.io/badge/version-1.1-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
@@ -47,6 +47,11 @@ cb_monitor/
    # Or download from:
    # https://developer.android.com/studio/releases/platform-tools
    ```
+   ```powershell
+   # Windows (PowerShell)
+   winget install --id=Google.PlatformTools
+   # Or download the ZIP from the link above and add adb.exe to PATH
+   ```
 
 2. **Python 3.7+** (no external packages required)
 
@@ -65,8 +70,11 @@ cd 5GBC_phone_monitor
 # Connect your phone via USB and enable USB debugging
 # Accept the "Allow USB debugging" prompt on your phone
 
-# Start the server
+# Start the server (macOS/Linux)
 ./start.sh
+
+# Start the server (Windows)
+python api_server.py 8888
 ```
 
 ### Access the Interface
@@ -330,10 +338,7 @@ F12 → Network tab → Disable cache checkbox
 ## 📱 Compatible Devices
 
 **Tested:**
-- ✅ Motorola Edge 50 Fusion
-- ✅ Samsung Galaxy series
-- ✅ Google Pixel phones
-- ✅ OnePlus devices
+- ✅ Motorola Edge 50 Fusion (primary validated device)
 
 **Requirements:**
 - Android 8.0+
@@ -443,9 +448,9 @@ MIT License - Use freely for testing and analysis purposes.
 
 ---
 
-**Version**: 1.0
+**Version**: 1.1
 **Created**: December 2025
 **Purpose**: Professional 5G Broadcast signal monitoring and coverage analysis
 **Tech Stack**: Python 3, Leaflet.js, Android ADB, JSONL storage
 
-🤖 *Built with [Claude Code](https://claude.com/claude-code)*
+Developed by **Kristo Kaasan** in cooperation with **Claude Code** and **Codex**.
