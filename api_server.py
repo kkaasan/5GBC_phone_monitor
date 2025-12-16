@@ -59,12 +59,22 @@ class APIHandler(SimpleHTTPRequestHandler):
         path_parts = parsed_path.path.strip('/').split('/')
 
         # Handle API routes
-        if path_parts[0] == 'api' and len(path_parts) >= 3 and path_parts[1] == 'monitor':
-            if path_parts[2] == 'start':
-                self.handle_monitor_start()
+        if path_parts[0] == 'api' and len(path_parts) >= 3:
+            if path_parts[1] == 'monitor':
+                if path_parts[2] == 'start':
+                    self.handle_monitor_start()
+                    return
+                elif path_parts[2] == 'stop':
+                    self.handle_monitor_stop()
+                    return
+            elif path_parts[1] == 'transmitters' and path_parts[2] == 'save':
+                self.handle_transmitters_save()
                 return
-            elif path_parts[2] == 'stop':
-                self.handle_monitor_stop()
+            elif path_parts[1] == 'sessions' and path_parts[2] == 'delete':
+                self.handle_session_delete()
+                return
+            elif path_parts[1] == 'sessions' and path_parts[2] == 'export':
+                self.handle_sessions_export()
                 return
 
         self.send_error(404, "Not found")
@@ -242,6 +252,159 @@ class APIHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps({'error': str(e)}).encode('utf-8'))
 
+    def handle_transmitters_save(self):
+        """Save transmitter configuration to file"""
+        try:
+            # Read POST data
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
+
+            # Save to file
+            transmitters_file = DATA_DIR / "transmitters.json"
+            with open(transmitters_file, 'w') as f:
+                json.dump(data, f, indent=2)
+
+            print(f"[TRANSMITTERS] Saved {len(data.get('transmitters', []))} transmitters to {transmitters_file}")
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
+
+        except Exception as e:
+            print(f"[TRANSMITTERS ERROR] {e}")
+            import traceback
+            traceback.print_exc()
+
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'success': False, 'error': str(e)}).encode('utf-8'))
+
+    def handle_session_delete(self):
+        """Delete a session: remove log file and drop from data_index.json"""
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length) if content_length > 0 else b'{}'
+            data = json.loads(body.decode('utf-8') or '{}')
+            session_id = data.get('session_id')
+        except Exception:
+            session_id = None
+
+        if not session_id:
+            self.send_error(400, "Missing session_id")
+            return
+
+        log_file = LOGS_DIR / f"{session_id}.jsonl"
+        removed_log = False
+        if log_file.exists():
+            try:
+                log_file.unlink()
+                removed_log = True
+            except Exception:
+                pass
+
+        index_file = DATA_DIR / "data_index.json"
+        removed_index = False
+        if index_file.exists():
+            try:
+                with open(index_file, "r") as f:
+                    index_data = json.load(f)
+                sessions = index_data.get("sessions", [])
+                new_sessions = [s for s in sessions if s.get("session_id") != session_id]
+                if len(new_sessions) != len(sessions):
+                    index_data["sessions"] = new_sessions
+                    with open(index_file, "w") as f:
+                        json.dump(index_data, f, indent=2)
+                    removed_index = True
+            except Exception:
+                pass
+
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "success": True,
+            "session_id": session_id,
+            "removed_log": removed_log,
+            "removed_index": removed_index
+        }).encode('utf-8'))
+
+    def handle_sessions_export(self):
+        """Export multiple sessions into a single CSV"""
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length) if content_length > 0 else b'{}'
+            data = json.loads(body.decode('utf-8') or '{}')
+            session_ids = data.get('session_ids') or []
+        except Exception:
+            session_ids = []
+
+        if not session_ids:
+            self.send_error(400, "Missing session_ids")
+            return
+
+        combined = []
+        for session_id in session_ids:
+            log_file = LOGS_DIR / f"{session_id}.jsonl"
+            if not log_file.exists():
+                continue
+            try:
+                with open(log_file, 'r') as f:
+                    for line in f:
+                        if not line.strip():
+                            continue
+                        point = json.loads(line)
+                        point["session_id"] = session_id
+                        combined.append(point)
+            except Exception:
+                continue
+
+        if not combined:
+            self.send_error(404, "No data found for selected sessions")
+            return
+
+        # Sort by timestamp
+        combined.sort(key=lambda p: p.get("timestamp", ""))
+
+        # Generate CSV
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/csv')
+        self.send_header('Content-Disposition', 'attachment; filename="sessions_combined.csv"')
+        self.end_headers()
+
+        import io
+        output = io.StringIO()
+        fieldnames = [
+            'session_id',
+            'timestamp', 'latitude', 'longitude',
+            'rssi', 'rsrp', 'rsrq', 'snr',
+            'mcc', 'mnc', 'tac', 'ci', 'pci', 'earfcn'
+        ]
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for point in combined:
+            writer.writerow({
+                'session_id': point.get('session_id', ''),
+                'timestamp': point.get('timestamp', ''),
+                'latitude': point.get('location', {}).get('latitude') or '',
+                'longitude': point.get('location', {}).get('longitude') or '',
+                'rssi': (point.get('signal', {}) or {}).get('rssi') or '',
+                'rsrp': (point.get('signal', {}) or {}).get('rsrp') or '',
+                'rsrq': (point.get('signal', {}) or {}).get('rsrq') or '',
+                'snr': (point.get('signal', {}) or {}).get('snr') or '',
+                'mcc': (point.get('lte', {}) or {}).get('mcc') or '',
+                'mnc': (point.get('lte', {}) or {}).get('mnc') or '',
+                'tac': (point.get('lte', {}) or {}).get('tac') or '',
+                'ci': (point.get('lte', {}) or {}).get('ci') or '',
+                'pci': (point.get('lte', {}) or {}).get('pci') or '',
+                'earfcn': (point.get('lte', {}) or {}).get('earfcn') or ''
+            })
+
+        self.wfile.write(output.getvalue().encode('utf-8'))
+
 def start_server(port=8888):
     """Start the API server"""
     os.chdir(Path(__file__).parent)
@@ -253,6 +416,9 @@ def start_server(port=8888):
     print(f"   Main menu: http://localhost:{port}/index.html")
     print(f"   Dashboard: http://localhost:{port}/dashboard.html")
     print(f"   Heatmap: http://localhost:{port}/heatmap.html")
+    print(f"   Settings: http://localhost:{port}/settings.html")
+    print(f"   Sessions: http://localhost:{port}/sessions.html")
+    print(f"\n   API endpoints: /api/monitor/*, /api/transmitters/*, /api/export/*")
     print(f"\n   Press Ctrl+C to stop\n")
 
     try:

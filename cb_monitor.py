@@ -522,19 +522,158 @@ def list_sessions():
         print()
 
 def start_web_server(port=8888):
-    """Start simple HTTP server for web interface"""
+    """Start simple HTTP server for web interface with API support"""
     os.chdir(Path(__file__).parent)
 
+    # Global monitor instance for API access
+    monitor = CBMonitor()
+    TRANSMITTERS_FILE = DATA_DIR / "transmitters.json"
+
     class Handler(http.server.SimpleHTTPRequestHandler):
+        def log_message(self, format, *args):
+            """Override to add custom logging"""
+            sys.stderr.write("[SERVER]  %s - - [%s] %s\n" %
+                           (self.address_string(),
+                            self.log_date_time_string(),
+                            format%args))
+
         def end_headers(self):
             self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
             self.send_header('Expires', '0')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
             super().end_headers()
+
+        def do_OPTIONS(self):
+            """Handle CORS preflight"""
+            print(f"[API] OPTIONS {self.path}")
+            self.send_response(200)
+            self.end_headers()
+
+        def do_GET(self):
+            """Handle GET requests"""
+            if self.path.startswith('/api/monitor/status'):
+                self.handle_monitor_status()
+            elif self.path.startswith('/api/export/'):
+                session_id = self.path.split('/')[-1]
+                self.handle_export(session_id)
+            else:
+                super().do_GET()
+
+        def do_POST(self):
+            """Handle POST requests"""
+            print(f"[API] POST {self.path}")
+            try:
+                if self.path == '/api/monitor/start':
+                    self.handle_monitor_start()
+                elif self.path == '/api/monitor/stop':
+                    self.handle_monitor_stop()
+                elif self.path == '/api/transmitters/save':
+                    self.handle_transmitters_save()
+                else:
+                    print(f"[API] No handler for: {self.path}")
+                    self.send_error(404, "API endpoint not found")
+            except Exception as e:
+                print(f"[API ERROR] {e}")
+                import traceback
+                traceback.print_exc()
+                self.send_error(500, str(e))
+
+        def handle_monitor_status(self):
+            """Get monitoring status"""
+            status = {
+                'running': monitor.running,
+                'device': None
+            }
+
+            if monitor.check_adb():
+                status['device'] = {'model': monitor.get_device_info()}
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(status).encode())
+
+        def handle_monitor_start(self):
+            """Start monitoring"""
+            if monitor.running:
+                response = {'success': False, 'error': 'Already running'}
+            else:
+                # Start monitoring in background thread
+                def start_bg():
+                    monitor.start_monitoring()
+
+                Thread(target=start_bg, daemon=True).start()
+                time.sleep(1)  # Give it time to start
+                response = {'success': True}
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+
+        def handle_monitor_stop(self):
+            """Stop monitoring"""
+            if not monitor.running:
+                response = {'success': False, 'error': 'Not running'}
+            else:
+                monitor.stop_event.set()
+                response = {'success': True}
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+
+        def handle_export(self, session_id):
+            """Export session to CSV"""
+            output_file = DATA_DIR / f"{session_id}.csv"
+
+            if export_to_csv(session_id, output_file):
+                # Send CSV file
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/csv')
+                self.send_header('Content-Disposition', f'attachment; filename="{session_id}.csv"')
+                self.end_headers()
+
+                with open(output_file, 'rb') as f:
+                    self.wfile.write(f.read())
+            else:
+                self.send_error(404, "Session not found")
+
+        def handle_transmitters_save(self):
+            """Save transmitter configuration"""
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                data = json.loads(post_data.decode('utf-8'))
+
+                # Save to file
+                with open(TRANSMITTERS_FILE, 'w') as f:
+                    json.dump(data, f, indent=2)
+
+                response = {'success': True}
+                self.send_response(200)
+            except Exception as e:
+                response = {'success': False, 'error': str(e)}
+                self.send_response(500)
+
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+
+    # Verify Handler class has do_POST
+    print(f"[STARTUP] Handler has do_POST: {hasattr(Handler, 'do_POST')}")
+    print(f"[STARTUP] Transmitters file: {TRANSMITTERS_FILE}")
 
     with socketserver.TCPServer(("", port), Handler) as httpd:
         print(f"\n🌐 Web server started: http://localhost:{port}")
+        print(f"   Home: http://localhost:{port}/index.html")
         print(f"   Dashboard: http://localhost:{port}/dashboard.html")
         print(f"   Heatmap: http://localhost:{port}/heatmap.html")
+        print(f"   Settings: http://localhost:{port}/settings.html")
+        print(f"   API endpoints: /api/monitor/*, /api/transmitters/*, /api/export/*")
         print(f"   Press Ctrl+C to stop\n")
 
         try:

@@ -122,6 +122,7 @@ The dashboard loads all historical data from the current session on page load, s
   - 📍 **Markers**: Individual measurement points with popups
 - **Export to CSV**: Download session data
 - **Collapsible Controls**: Clean interface with expandable control panel
+- **Transmitter Filters**: Heatmap/markers honor active transmitters (by PCI); click tower icons to toggle coverage on/off. At least one transmitter must be active to render heatmap.
 
 **Signal Classification (OR Logic):**
 - 🟩 **16-QAM Capable**: RSRP ≥ -95 dBm OR RSRQ ≥ -10 dB

@@ -169,6 +169,7 @@
         .session-actions {
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
         .action-btn {
@@ -179,6 +180,59 @@
             font-size: 13px;
             font-weight: 600;
             transition: all 0.3s;
+        }
+
+        .selection-bar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .select-btn {
+            padding: 8px 14px;
+            border: 1px solid #64748b;
+            background: white;
+            color: #334155;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .select-btn:hover {
+            background: #e2e8f0;
+        }
+
+        .bulk-btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .bulk-btn.export {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .bulk-btn.export:hover {
+            background: #d97706;
+        }
+
+        .bulk-btn.delete {
+            background: #ef4444;
+            color: white;
+        }
+
+        .bulk-btn.delete:hover {
+            background: #dc2626;
         }
 
         .export-btn {
@@ -197,6 +251,15 @@
 
         .view-btn:hover {
             background: #5568d3;
+        }
+
+        .delete-btn {
+            background: #ef4444;
+            color: white;
+        }
+
+        .delete-btn:hover {
+            background: #dc2626;
         }
 
         .session-stats {
@@ -258,6 +321,7 @@
                 <a href="index.html">🏠 Home</a>
                 <a href="dashboard.html">📊 Live Dashboard</a>
                 <a href="heatmap.html">🗺️ Coverage Heatmap</a>
+                <a href="settings.html">⚙️ Settings</a>
             </div>
         </div>
 
@@ -279,7 +343,13 @@
         <div class="sessions-container">
             <div class="sessions-header">
                 <h2>Captured Sessions</h2>
-                <button class="refresh-btn" onclick="loadSessions()">🔄 Refresh</button>
+                <div class="selection-bar">
+                    <button class="select-btn" onclick="selectAll()">✓ Select All</button>
+                    <button class="select-btn" onclick="clearSelection()">✕ Clear</button>
+                    <button class="bulk-btn export" onclick="exportSelected()">📥 Export Selected as CSV</button>
+                    <button class="bulk-btn delete" onclick="deleteSelected()">🗑️ Delete Selected</button>
+                    <button class="refresh-btn" onclick="loadSessions()">🔄 Refresh</button>
+                </div>
             </div>
             <div id="sessionsList">
                 <div class="loading">Loading sessions...</div>
@@ -297,6 +367,8 @@
 
                 const index = await response.json();
                 const sessions = index.sessions || [];
+                window.allSessions = sessions;
+                window.selectedSessions = window.selectedSessions || new Set();
 
                 if (sessions.length === 0) {
                     showEmptyState();
@@ -341,6 +413,7 @@
 
             const html = sessions.map(session => {
                 const date = formatSessionDate(session.session_id);
+                const isSelected = window.selectedSessions?.has(session.session_id);
 
                 // Calculate duration from start and end times
                 let duration = 'N/A';
@@ -367,7 +440,8 @@
                 return `
                     <div class="session-card">
                         <div class="session-header">
-                            <div>
+                            <div style="display:flex; gap:12px; align-items:flex-start;">
+                                <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="toggleSessionSelection('${session.session_id}', event)" style="margin-top:4px;">
                                 <div class="session-title">📡 ${session.session_id}</div>
                                 <div class="session-date">${date}</div>
                             </div>
@@ -377,6 +451,9 @@
                                 </button>
                                 <button class="action-btn export-btn" onclick="exportSession('${session.session_id}')">
                                     📥 Export CSV
+                                </button>
+                                <button class="action-btn delete-btn" onclick="deleteSession(event, '${session.session_id}')">
+                                    🗑️ Delete
                                 </button>
                             </div>
                         </div>
@@ -441,6 +518,112 @@
 
         function exportSession(sessionId) {
             window.location.href = `/api/export/${sessionId}`;
+        }
+
+        async function deleteSession(event, sessionId) {
+            event.stopPropagation();
+            if (!confirm(`Delete session ${sessionId}? This cannot be undone.`)) return;
+
+            const btn = event.currentTarget;
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Deleting...';
+
+            try {
+                const response = await fetch('/api/sessions/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ session_id: sessionId })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server responded ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (result.success) {
+                    loadSessions();
+                } else {
+                    throw new Error(result.error || 'Unknown error');
+                }
+            } catch (error) {
+                alert('Failed to delete session: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+
+        function toggleSessionSelection(sessionId, event) {
+            window.selectedSessions = window.selectedSessions || new Set();
+            if (event.target.checked) {
+                window.selectedSessions.add(sessionId);
+            } else {
+                window.selectedSessions.delete(sessionId);
+            }
+        }
+
+        function selectAll() {
+            window.selectedSessions = new Set((window.allSessions || []).map(s => s.session_id));
+            displaySessions(window.allSessions || []);
+        }
+
+        function clearSelection() {
+            window.selectedSessions = new Set();
+            displaySessions(window.allSessions || []);
+        }
+
+        async function exportSelected() {
+            const selected = Array.from(window.selectedSessions || []);
+            if (selected.length === 0) {
+                alert('Select at least one session to export');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/sessions/export', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_ids: selected })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server responded ${response.status}`);
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'sessions_combined.csv';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                alert('Failed to export sessions: ' + error.message);
+            }
+        }
+
+        async function deleteSelected() {
+            const selected = Array.from(window.selectedSessions || []);
+            if (selected.length === 0) {
+                alert('Select at least one session to delete');
+                return;
+            }
+            if (!confirm(`Delete ${selected.length} session(s)? This cannot be undone.`)) return;
+
+            for (const sessionId of selected) {
+                await fetch('/api/sessions/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sessionId })
+                });
+            }
+            window.selectedSessions = new Set();
+            loadSessions();
         }
 
         // Load sessions on page load

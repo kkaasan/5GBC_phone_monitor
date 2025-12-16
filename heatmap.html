@@ -7,7 +7,6 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
     <style>
         body {
             margin: 0;
@@ -91,6 +90,27 @@
             border: 1px solid #ddd;
             border-radius: 5px;
             font-size: 13px;
+            min-height: 100px;
+        }
+        .select-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            margin-top: 5px;
+        }
+        .select-all-btn {
+            padding: 6px;
+            border: 1px solid #667eea;
+            border-radius: 4px;
+            background: white;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        .select-all-btn:hover {
+            background: #667eea;
+            color: white;
         }
         .date-time-inputs {
             display: grid;
@@ -228,6 +248,8 @@
     <div class="nav-header">
         <a href="index.html">🏠 Home</a>
         <a href="dashboard.html">📊 Live Dashboard</a>
+        <a href="sessions.html">📥 Sessions</a>
+        <a href="settings.html">⚙️ Settings</a>
     </div>
 
     <div id="map"></div>
@@ -242,10 +264,17 @@
 
         <div class="control-panel-content">
             <div class="control-section">
-                <h4>Select Session</h4>
-                <select class="session-selector" id="sessionSelect">
+                <h4>Select Sessions (Hold Ctrl/Cmd)</h4>
+                <select class="session-selector" id="sessionSelect" multiple>
                     <option value="">Loading sessions...</option>
                 </select>
+                <div class="select-buttons">
+                    <button class="select-all-btn" onclick="selectAllSessions()">✓ Select All</button>
+                    <button class="select-all-btn" onclick="clearAllSessions()">✕ Clear All</button>
+                </div>
+                <div style="font-size: 11px; color: #64748b; margin-top: 8px; text-align: center;">
+                    Configure transmitter locations on <a href="index.html" style="color: #667eea;">Home page</a>
+                </div>
             </div>
 
             <div class="control-section">
@@ -301,6 +330,10 @@
             <div class="legend-color" style="background: #808080;"></div>
             <span>⚫ Unusable: RSRP &lt; -120 dB AND RSRQ &lt; -20 dB</span>
         </div>
+        <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #ddd; font-size: 11px; color: #666;">
+            <div style="margin-bottom: 3px;">📡 Orange markers: Transmitter locations</div>
+            <div>Heatmap uses IDW interpolation between measurements</div>
+        </div>
     </div>
 
     <script>
@@ -316,18 +349,118 @@
         let currentData = [];
         let filteredData = [];
         let sessions = {};
-        let currentSession = null;
+        let currentSessions = [];  // Array of selected session IDs
 
         let markersLayer = L.layerGroup().addTo(map);
         let routeLayer = L.layerGroup();
-        let heatLayer = null;
+        let triangulationLayer = L.layerGroup();
+        let transmittersLayer = L.layerGroup().addTo(map);
+        let idwCanvas = null;
+        let transmittersCache = [];
+        let activeTransmitterIds = new Set();
+        let userToggledTransmitters = false;
+
+        // Normalize PCI values to a number (or null) for matching
+        function normalizePCIValue(pci) {
+            const num = Number(pci);
+            return Number.isFinite(num) ? num : null;
+        }
 
         let showHeatmap = true;
         let showRoute = false;
         let showMarkers = true;
 
+        // Load transmitter locations from server
+        async function loadTransmitters() {
+            try {
+                const response = await fetch('data/transmitters.json?' + new Date().getTime());
+                if (response.ok) {
+                    const data = await response.json();
+                    transmittersCache = data.transmitters || [];
+                    // Default: all transmitters active on first load only
+                    if (!userToggledTransmitters && transmittersCache.length && activeTransmitterIds.size === 0) {
+                        transmittersCache.forEach(tx => activeTransmitterIds.add(Number(tx.id)));
+                    }
+                    return transmittersCache;
+                }
+            } catch (error) {
+                console.log('No transmitters configured');
+            }
+            transmittersCache = [];
+            return transmittersCache;
+        }
+
+        // Display transmitters on map
+        async function showTransmitters() {
+            transmittersLayer.clearLayers();
+            const transmitters = await loadTransmitters();
+
+            transmitters.forEach(tx => {
+                const isActive = activeTransmitterIds.has(tx.id);
+                const marker = L.marker([tx.lat, tx.lon], {
+                    icon: L.divIcon({
+                        html: `<div style="background: ${isActive ? '#10b981' : '#ff6b00'}; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">📡</div>`,
+                        className: 'transmitter-icon',
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 16]
+                    })
+                });
+
+                const pciInfo = tx.pci ? `<div style="margin-top: 3px; padding: 3px 6px; background: #667eea; color: white; border-radius: 3px; display: inline-block; font-size: 11px; font-weight: 600;">PCI: ${tx.pci}</div>` : '<div style="margin-top: 3px; color: #ef4444; font-size: 11px;">⚠️ No PCI configured</div>';
+                marker.bindPopup(`
+                    <div style="font-size: 13px;">
+                        <strong style="color: #ff6b00;">📡 ${tx.name}</strong><br>
+                        ${pciInfo}
+                        <div style="margin-top: 5px; color: #666;">
+                            📍 ${tx.lat.toFixed(6)}, ${tx.lon.toFixed(6)}
+                        </div>
+                        <div style="margin-top: 5px; font-size: 11px; color: #888;">
+                            Click marker to toggle coverage for this tower
+                        </div>
+                    </div>
+                `);
+
+                marker.on('click', () => toggleTransmitterSelection(tx.id));
+                transmittersLayer.addLayer(marker);
+            });
+        }
+
+        // Initialize transmitters
+        showTransmitters();
+
+        // Toggle transmitter filter
+        async function toggleTransmitterSelection(id) {
+            userToggledTransmitters = true;
+            if (activeTransmitterIds.has(id)) {
+                activeTransmitterIds.delete(id);
+            } else {
+                activeTransmitterIds.add(id);
+            }
+
+            await showTransmitters(); // refresh icon states
+            updateVisualization();
+            updateStats();
+        }
+
+        function getTransmitterFilteredData(baseData, transmitters) {
+            if (!transmitters || transmitters.length === 0) return []; // no config -> hide heatmap until configured
+            if (!activeTransmitterIds.size) return []; // user turned all off -> hide
+
+            const activePcis = new Set(
+                transmitters
+                    .filter(tx => activeTransmitterIds.has(Number(tx.id)))
+                    .map(tx => normalizePCIValue(tx.pci))
+                    .filter(pci => pci !== null)
+            );
+
+            // If no valid PCIs selected, hide all to avoid mismatches
+            if (activePcis.size === 0) return [];
+
+            return baseData.filter(p => activePcis.has(normalizePCIValue(p.lte?.pci)));
+        }
+
         // Load sessions index
-        async function loadSessions() {
+        async function loadSessionsList() {
             try {
                 const response = await fetch('data/data_index.json?' + new Date().getTime());
                 if (!response.ok) {
@@ -338,20 +471,29 @@
                 sessions = {};
 
                 const select = document.getElementById('sessionSelect');
-                select.innerHTML = '<option value="">-- Select a session --</option>';
+                select.innerHTML = '';
 
-                index.sessions.forEach(session => {
+                // Sort sessions by date (newest first)
+                const sortedSessions = [...index.sessions].sort((a, b) =>
+                    b.session_id.localeCompare(a.session_id)
+                );
+
+                sortedSessions.forEach(session => {
                     sessions[session.session_id] = session;
                     const startDate = new Date(session.start_time);
                     const endDate = new Date(session.end_time);
 
                     const option = document.createElement('option');
                     option.value = session.session_id;
-                    option.textContent = `${startDate.toLocaleDateString()} ${startDate.toLocaleTimeString()} - ${endDate.toLocaleTimeString()} (${session.count} points)`;
+                    option.textContent = `${startDate.toLocaleDateString()} ${startDate.toLocaleTimeString()} (${session.count} pts)`;
                     select.appendChild(option);
                 });
 
-                select.onchange = () => loadSession(select.value);
+                select.onchange = () => {
+                    const selectedOptions = Array.from(select.selectedOptions);
+                    const sessionIds = selectedOptions.map(opt => opt.value);
+                    loadSessions(sessionIds, { suppressAlerts: false });
+                };
 
                 // Check if session is specified in URL query parameter
                 const urlParams = new URLSearchParams(window.location.search);
@@ -360,11 +502,16 @@
                 if (requestedSession && sessions[requestedSession]) {
                     // Load the requested session from URL
                     select.value = requestedSession;
-                    loadSession(requestedSession);
-                } else if (index.sessions.length > 0) {
-                    // Auto-load first session if no URL parameter
-                    select.value = index.sessions[0].session_id;
-                    loadSession(index.sessions[0].session_id);
+                    loadSessions([requestedSession]);
+                } else if (sortedSessions.length > 0) {
+                    // Auto-load first available session with data
+                    (async () => {
+                        for (const session of sortedSessions) {
+                            select.value = session.session_id;
+                            const success = await loadSessions([session.session_id], { suppressAlerts: true });
+                            if (success) break;
+                        }
+                    })();
                 }
 
             } catch (error) {
@@ -373,23 +520,69 @@
             }
         }
 
-        // Load session data
-        async function loadSession(sessionId) {
-            if (!sessionId) return;
+        // Load multiple session data
+        async function loadSessions(sessionIds, options = {}) {
+            if (!sessionIds || sessionIds.length === 0) return;
+            const suppressAlerts = options.suppressAlerts || false;
 
-            currentSession = sessionId;
+            currentSessions = sessionIds;
+            currentData = [];
 
             try {
-                const response = await fetch(`logs/${sessionId}.jsonl?` + new Date().getTime());
-                const text = await response.text();
+                // Load all selected sessions in parallel
+                const promises = sessionIds.map(async sessionId => {
+                    try {
+                        const response = await fetch(`logs/${sessionId}.jsonl?` + new Date().getTime());
+                        if (!response.ok) {
+                            console.warn(`Session ${sessionId} not found (HTTP ${response.status})`);
+                            return [];
+                        }
 
-                currentData = text.trim().split('\n')
-                    .filter(line => line)
-                    .map(line => JSON.parse(line));
+                        const text = (await response.text()).trim();
+                        if (!text) {
+                            console.warn(`Session ${sessionId} is empty`);
+                            return [];
+                        }
+
+                        return text.split('\n')
+                            .filter(line => line)
+                            .map(line => {
+                                try {
+                                    const data = JSON.parse(line);
+                                    data.sessionId = sessionId;  // Add session ID to each data point
+                                    return data;
+                                } catch (err) {
+                                    console.warn(`Skipped malformed line in ${sessionId}:`, err);
+                                    return null;
+                                }
+                            })
+                            .filter(Boolean);
+                    } catch (fetchErr) {
+                        console.warn(`Error fetching session ${sessionId}:`, fetchErr);
+                        return [];
+                    }
+                });
+
+                const allSessionData = await Promise.all(promises);
+
+                // Combine all data and sort by timestamp
+                currentData = allSessionData.flat().sort((a, b) =>
+                    new Date(a.timestamp) - new Date(b.timestamp)
+                );
+
+                if (currentData.length === 0) {
+                    if (!suppressAlerts) {
+                        alert('No data loaded for the selected sessions (missing or empty log files)');
+                    }
+                    filteredData = [];
+                    updateVisualization();
+                    updateStats();
+                    return false;
+                }
 
                 filteredData = [...currentData];
 
-                // Update date filter with session date
+                // Update date filter with first session date
                 if (currentData.length > 0) {
                     const firstDate = new Date(currentData[0].timestamp);
                     document.getElementById('dateFilter').value = firstDate.toISOString().split('T')[0];
@@ -397,15 +590,19 @@
 
                 updateVisualization();
                 updateStats();
+                return true;
 
             } catch (error) {
-                console.error('Error loading session:', error);
-                alert('Error loading session data');
+                console.error('Error loading sessions:', error);
+                if (!suppressAlerts) {
+                    alert('Error loading session data: ' + (error?.message || error));
+                }
+                return false;
             }
         }
 
         // Apply time filter
-        function applyTimeFilter() {
+        async function applyTimeFilter() {
             const date = document.getElementById('dateFilter').value;
             const timeFrom = document.getElementById('timeFrom').value;
             const timeTo = document.getElementById('timeTo').value;
@@ -443,15 +640,20 @@
 
         // Update visualization
         function updateVisualization() {
-            // Clear existing layers
-            markersLayer.clearLayers();
-            routeLayer.clearLayers();
-            if (heatLayer) {
-                map.removeLayer(heatLayer);
-                heatLayer = null;
-            }
+            try {
+                // Clear existing layers
+                markersLayer.clearLayers();
+                routeLayer.clearLayers();
+                triangulationLayer.clearLayers();
 
-            if (filteredData.length === 0) return;
+                if (filteredData.length === 0) return;
+
+                const displayData = getTransmitterFilteredData(filteredData, transmittersCache);
+
+                if (displayData.length === 0) {
+                    document.getElementById('legend').style.display = 'none';
+                    return;
+                }
 
             // Helper function to get signal color based on RSRP and RSRQ
             // Uses OR logic - if either metric is good enough, classify in that tier
@@ -483,54 +685,131 @@
                 return '#808080'; // Gray - Unusable
             }
 
-            // Create markers
-            filteredData.forEach((point, idx) => {
-                if (!point.location.latitude || !point.location.longitude) return;
+            // Helper function to get numeric signal tier for interpolation
+            function getSignalTier(rsrp, rsrq) {
+                if (rsrp === null && rsrq === null) return 0;
+                if ((rsrp === null || rsrp < -120) && (rsrq === null || rsrq < -20)) return 0; // Gray
+                if ((rsrp !== null && rsrp >= -95) || (rsrq !== null && rsrq >= -10)) return 3; // Green
+                if ((rsrp !== null && rsrp >= -105) || (rsrq !== null && rsrq >= -13)) return 2; // Yellow
+                if ((rsrp !== null && rsrp >= -115) || (rsrq !== null && rsrq >= -17)) return 1; // Red
+                return 0; // Gray
+            }
 
-                const lat = parseFloat(point.location.latitude);
-                const lon = parseFloat(point.location.longitude);
-                const rsrp = point.signal.rsrp;
-                const rsrq = point.signal.rsrq;
-                const color = getSignalColor(rsrp, rsrq);
+            // Helper function to get color from tier
+            function getTierColor(tier) {
+                if (tier === 0) return '#808080'; // Gray
+                if (tier === 1) return '#ff0000'; // Red
+                if (tier === 2) return '#ffff00'; // Yellow
+                if (tier === 3) return '#00ff00'; // Green
+                return '#808080';
+            }
 
-                const marker = L.circleMarker([lat, lon], {
-                    radius: 7,
-                    fillColor: color,
-                    color: '#fff',
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.8
-                });
+            // Calculate distance between two points (Haversine formula)
+            function calculateDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371; // Earth radius in km
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                          Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return R * c; // Distance in km
+            }
 
-                const time = new Date(point.timestamp).toLocaleTimeString();
-                let popupContent = `<div style="font-size: 13px; line-height: 1.6;">`;
-                popupContent += `<b style="font-size: 14px;">📍 Point ${idx + 1}</b><br>`;
-                popupContent += `<div style="margin-top: 8px;">`;
-                popupContent += `⏰ ${time}<br>`;
-                popupContent += `📌 ${lat.toFixed(6)}, ${lon.toFixed(6)}</div>`;
+            // Find transmitter for a measurement point based on PCI
+            async function findTransmitterForPoint(point) {
+                const transmitters = await loadTransmitters();
+                const pci = normalizePCIValue(point.lte?.pci);
 
-                // Signal Strength Section
-                popupContent += `<div style="margin-top: 8px; padding: 4px; background: #f0f0f0; border-radius: 4px;">`;
-                popupContent += `<b>📶 Signal Strength:</b><br>`;
-                popupContent += `RSRP: <b>${rsrp !== null ? rsrp + ' dBm' : 'N/A'}</b><br>`;
-                if (point.signal.rssi !== null) popupContent += `RSSI: ${point.signal.rssi} dBm<br>`;
-                if (point.signal.rsrq !== null) popupContent += `RSRQ: ${point.signal.rsrq} dB`;
-                popupContent += `</div>`;
+                if (pci === null) return null;
 
-                // Cell Tower Section
-                popupContent += `<div style="margin-top: 8px; padding: 4px; background: #e8f4f8; border-radius: 4px;">`;
-                popupContent += `<b>🗼 Cell Tower:</b><br>`;
-                popupContent += `PCI: <b>${point.lte.pci || 'N/A'}</b><br>`;
-                popupContent += `Cell ID: ${point.lte.ci || 'N/A'}<br>`;
-                popupContent += `Network: ${point.lte.mcc || '?'}-${point.lte.mnc || '?'}`;
-                popupContent += `</div></div>`;
+                // Find transmitter with matching PCI
+                return transmitters.find(tx => normalizePCIValue(tx.pci) === pci) || null;
+            }
 
-                marker.bindPopup(popupContent);
-                markersLayer.addLayer(marker);
-            });
+            // Create markers with transmitter distance info
+            const createMarkers = async (pointsToRender) => {
+                const transmitters = transmittersCache.length ? transmittersCache : await loadTransmitters();
+
+                for (let idx = 0; idx < pointsToRender.length; idx++) {
+                    const point = pointsToRender[idx];
+                    if (!point.location.latitude || !point.location.longitude) continue;
+
+                    const lat = parseFloat(point.location.latitude);
+                    const lon = parseFloat(point.location.longitude);
+                    const rsrp = point.signal.rsrp;
+                    const rsrq = point.signal.rsrq;
+                    const color = getSignalColor(rsrp, rsrq);
+
+                    const marker = L.circleMarker([lat, lon], {
+                        radius: 6,
+                        fillColor: color,
+                        color: color,
+                        weight: 1,
+                        opacity: 0.9,
+                        fillOpacity: 0.9
+                    });
+
+                    const time = new Date(point.timestamp).toLocaleTimeString();
+                    const date = new Date(point.timestamp).toLocaleDateString();
+                    let popupContent = `<div style="font-size: 13px; line-height: 1.6;">`;
+                    popupContent += `<b style="font-size: 14px;">📍 Point ${idx + 1}</b><br>`;
+                    popupContent += `<div style="margin-top: 8px;">`;
+                    if (currentSessions.length > 1 && point.sessionId) {
+                        popupContent += `📋 Session: ${point.sessionId}<br>`;
+                    }
+                    popupContent += `⏰ ${date} ${time}<br>`;
+                    popupContent += `📌 ${lat.toFixed(6)}, ${lon.toFixed(6)}</div>`;
+
+                    // Signal Strength Section
+                    popupContent += `<div style="margin-top: 8px; padding: 4px; background: #f0f0f0; border-radius: 4px;">`;
+                    popupContent += `<b>📶 Signal Strength:</b><br>`;
+                    popupContent += `RSRP: <b>${rsrp !== null ? rsrp + ' dBm' : 'N/A'}</b><br>`;
+                    if (point.signal.rssi !== null) popupContent += `RSSI: ${point.signal.rssi} dBm<br>`;
+                    if (point.signal.rsrq !== null) popupContent += `RSRQ: ${point.signal.rsrq} dB`;
+                    popupContent += `</div>`;
+
+                    // Cell Tower Section with distance
+                    const pci = normalizePCIValue(point.lte?.pci);
+                    const matchedTx = transmitters.find(tx => normalizePCIValue(tx.pci) === pci);
+
+                    popupContent += `<div style="margin-top: 8px; padding: 4px; background: #e8f4f8; border-radius: 4px;">`;
+                    popupContent += `<b>🗼 Cell Tower:</b><br>`;
+                    popupContent += `PCI: <b>${pci !== null ? pci : 'N/A'}</b><br>`;
+                    popupContent += `Cell ID: ${point.lte.ci || 'N/A'}<br>`;
+                    popupContent += `Network: ${point.lte.mcc || '?'}-${point.lte.mnc || '?'}`;
+                    popupContent += `</div>`;
+
+                    // Distance to Transmitter
+                    if (matchedTx) {
+                        const distance = calculateDistance(lat, lon, matchedTx.lat, matchedTx.lon);
+                        const distanceText = distance < 1 ?
+                            `${(distance * 1000).toFixed(0)} m` :
+                            `${distance.toFixed(2)} km`;
+
+                        popupContent += `<div style="margin-top: 8px; padding: 4px; background: #fef3c7; border-radius: 4px; border-left: 3px solid #f59e0b;">`;
+                        popupContent += `<b>📡 ${matchedTx.name}</b><br>`;
+                        popupContent += `Distance: <b>${distanceText}</b>`;
+                        popupContent += `</div>`;
+                    } else if (pci) {
+                        popupContent += `<div style="margin-top: 8px; padding: 4px; background: #fee2e2; border-radius: 4px; border-left: 3px solid #ef4444;">`;
+                        popupContent += `<b>⚠️ Transmitter not configured</b><br>`;
+                        popupContent += `<span style="font-size: 11px;">Add PCI ${pci} in settings</span>`;
+                        popupContent += `</div>`;
+                    }
+
+                    popupContent += `</div>`;
+
+                    marker.bindPopup(popupContent);
+                    markersLayer.addLayer(marker);
+                }
+            };
+
+            // Call async marker creation
+            createMarkers(displayData);
 
             // Create route
-            const routeCoords = filteredData
+            const routeCoords = displayData
                 .filter(p => p.location.latitude && p.location.longitude)
                 .map(p => [parseFloat(p.location.latitude), parseFloat(p.location.longitude)]);
 
@@ -544,59 +823,212 @@
                 routeLayer.addLayer(routeLine);
             }
 
-            // Create heatmap based on combined RSRP + RSRQ classification
-            const heatmapData = filteredData
-                .filter(p => p.location.latitude && p.location.longitude &&
-                           (p.signal.rsrp !== null || p.signal.rsrq !== null))
-                .map(p => {
-                    const rsrp = p.signal.rsrp;
-                    const rsrq = p.signal.rsrq;
+            // Create transmitter-aware RF propagation heatmap
+            const createRFHeatmap = async (pointsToRender) => {
+                const transmitters = transmittersCache.length ? transmittersCache : await loadTransmitters();
 
-                    // Calculate intensity based on combined metrics
-                    // Use the better of the two metrics (OR logic)
-                    let intensity = 0;
+                const pointsWithSignal = pointsToRender
+                    .filter(p => p.location.latitude && p.location.longitude &&
+                               (p.signal.rsrp !== null || p.signal.rsrq !== null))
+                    .map(p => {
+                        const pci = normalizePCIValue(p.lte?.pci);
+                        const matchedTx = transmitters.find(tx => normalizePCIValue(tx.pci) === pci);
 
-                    // RSRP contribution (range: -120 to -60 dBm)
-                    if (rsrp !== null) {
-                        const rsrpIntensity = (rsrp - (-120)) / ((-60) - (-120));
-                        intensity = Math.max(intensity, rsrpIntensity);
+                        return {
+                            lat: parseFloat(p.location.latitude),
+                            lon: parseFloat(p.location.longitude),
+                            rsrp: p.signal.rsrp,
+                            rsrq: p.signal.rsrq,
+                            tier: getSignalTier(p.signal.rsrp, p.signal.rsrq),
+                            pci: pci,
+                            transmitter: matchedTx
+                        };
+                    });
+
+                if (pointsWithSignal.length >= 3) {
+                    try {
+                        createTransmitterAwareHeatmap(pointsWithSignal, transmitters);
+                        if (showHeatmap) {
+                            triangulationLayer.addTo(map);
+                        }
+                        document.getElementById('legend').style.display = 'block';
+                    } catch (error) {
+                        console.error('Error creating heatmap:', error);
                     }
-
-                    // RSRQ contribution (range: -20 to -3 dB)
-                    if (rsrq !== null) {
-                        const rsrqIntensity = (rsrq - (-20)) / ((-3) - (-20));
-                        intensity = Math.max(intensity, rsrqIntensity);
-                    }
-
-                    return [
-                        parseFloat(p.location.latitude),
-                        parseFloat(p.location.longitude),
-                        Math.max(0, Math.min(1, intensity))
-                    ];
-                });
-
-            if (heatmapData.length > 0) {
-                heatLayer = L.heatLayer(heatmapData, {
-                    radius: 30,
-                    blur: 20,
-                    maxZoom: 17,
-                    max: 1.0,
-                    gradient: {
-                        0.0: '#808080',   // Unusable - Gray
-                        0.083: '#808080', // -115 dBm / -17 dB boundary
-                        0.084: '#ff0000', // QPSK reception - Red
-                        0.249: '#ff0000', // -105 dBm / -13 dB boundary
-                        0.25: '#ffff00',  // Better signal - Yellow
-                        0.416: '#ffff00', // -95 dBm / -10 dB boundary
-                        0.417: '#00ff00', // 16-QAM possible - Green
-                        1.0: '#00ff00'    // Best signal
-                    }
-                });
-
-                if (showHeatmap) {
-                    heatLayer.addTo(map);
                 }
-                document.getElementById('legend').style.display = 'block';
+            };
+
+            // Call async heatmap creation
+            if (showHeatmap) {
+                createRFHeatmap(displayData);
+            } else {
+                triangulationLayer.clearLayers();
+                map.removeLayer(triangulationLayer);
+            }
+
+            // Function to create transmitter-aware RF propagation heatmap
+            function createTransmitterAwareHeatmap(points, transmitters) {
+                triangulationLayer.clearLayers();
+
+                // Get map bounds
+                const bounds = map.getBounds();
+                const nw = bounds.getNorthWest();
+                const se = bounds.getSouthEast();
+
+                // Create grid for interpolation
+                const gridSize = 50; // 50x50 grid
+                const latStep = (se.lat - nw.lat) / gridSize;
+                const lonStep = (se.lng - nw.lng) / gridSize;
+
+                // Group measurements by transmitter
+                const pointsByTransmitter = {};
+                const unconfiguredPoints = [];
+
+                points.forEach(point => {
+                    if (point.transmitter) {
+                        const txId = point.transmitter.id;
+                        if (!pointsByTransmitter[txId]) {
+                            pointsByTransmitter[txId] = [];
+                        }
+                        pointsByTransmitter[txId].push(point);
+                    } else {
+                        unconfiguredPoints.push(point);
+                    }
+                });
+
+                // Create polygons for each grid cell
+                for (let i = 0; i < gridSize; i++) {
+                    for (let j = 0; j < gridSize; j++) {
+                        const lat1 = nw.lat + i * latStep;
+                        const lat2 = nw.lat + (i + 1) * latStep;
+                        const lon1 = nw.lng + j * lonStep;
+                        const lon2 = nw.lng + (j + 1) * lonStep;
+
+                        const centerLat = (lat1 + lat2) / 2;
+                        const centerLon = (lon1 + lon2) / 2;
+
+                        let finalTier = null;
+                        let maxWeight = 0;
+
+                        // Process each transmitter's measurements separately
+                        Object.entries(pointsByTransmitter).forEach(([txId, txPoints]) => {
+                            const transmitter = transmitters.find(tx => tx.id === parseInt(txId));
+                            if (!transmitter) return;
+
+                            // Distance from grid cell to transmitter
+                            const distToTx = calculateDistance(centerLat, centerLon, transmitter.lat, transmitter.lon);
+
+                            // Find nearby measurements from this transmitter
+                            let weightedSum = 0;
+                            let weightSum = 0;
+
+                            for (const point of txPoints) {
+                                const distToPoint = calculateDistance(centerLat, centerLon, point.lat, point.lon);
+                                const distPointToTx = calculateDistance(point.lat, point.lon, transmitter.lat, transmitter.lon);
+
+                                // Use measurements within a dynamic range:
+                                // - minimum 500m
+                                // - at least 30% of cell-to-tx distance
+                                // - extend toward far-away measurements (50% of point-to-tx distance), capped to 5km
+                                const maxSearchRadius = Math.min(
+                                    5,
+                                    Math.max(0.5, distToTx * 0.3, distPointToTx * 0.5)
+                                );
+
+                                if (distToPoint < maxSearchRadius) {
+                                    if (distToPoint < 0.0001) {
+                                        // Very close to measurement - use it directly
+                                        weightedSum = point.tier;
+                                        weightSum = 1;
+                                        break;
+                                    }
+
+                                    // Weight by inverse distance squared
+                                    const weight = 1 / Math.pow(distToPoint, 2);
+
+                                    // Additional weight for measurements closer to transmitter
+                                    // (they're more reliable for predicting coverage)
+                                    const reliabilityFactor = 1 + (1 / (1 + distPointToTx));
+
+                                    const finalWeight = weight * reliabilityFactor;
+                                    weightedSum += point.tier * finalWeight;
+                                    weightSum += finalWeight;
+                                }
+                            }
+
+                            if (weightSum > 0) {
+                                const interpolatedTier = weightedSum / weightSum;
+                                if (weightSum > maxWeight) {
+                                    maxWeight = weightSum;
+                                    finalTier = Math.round(interpolatedTier);
+                                }
+                            }
+                        });
+
+                        // Also consider unconfigured points (fallback)
+                        if (unconfiguredPoints.length > 0 && finalTier === null) {
+                            let weightedSum = 0;
+                            let weightSum = 0;
+
+                            for (const point of unconfiguredPoints) {
+                                const dist = calculateDistance(centerLat, centerLon, point.lat, point.lon);
+
+                                if (dist < 0.05) { // 5km
+                                    if (dist < 0.0001) {
+                                        weightedSum = point.tier;
+                                        weightSum = 1;
+                                        break;
+                                    }
+
+                                    const weight = 1 / Math.pow(dist, 2);
+                                    weightedSum += point.tier * weight;
+                                    weightSum += weight;
+                                }
+                            }
+
+                            if (weightSum > 0) {
+                                finalTier = Math.round(weightedSum / weightSum);
+                            }
+                        }
+
+                        // Final safety net: if no tier yet, consider all points with a broader radius
+                        if (finalTier === null) {
+                            let weightedSum = 0;
+                            let weightSum = 0;
+
+                            for (const point of points) {
+                                const dist = calculateDistance(centerLat, centerLon, point.lat, point.lon);
+                                if (dist < 3) { // 3km broad fallback
+                                    const weight = 1 / Math.pow(Math.max(dist, 0.0001), 2);
+                                    weightedSum += point.tier * weight;
+                                    weightSum += weight;
+                                }
+                            }
+
+                            if (weightSum > 0) {
+                                finalTier = Math.round(weightedSum / weightSum);
+                            }
+                        }
+
+                        // Draw cell if we have a prediction
+                        if (finalTier !== null) {
+                            const color = getTierColor(finalTier);
+
+                            const cell = L.rectangle([
+                                [lat1, lon1],
+                                [lat2, lon2]
+                            ], {
+                                color: color,
+                                fillColor: color,
+                                fillOpacity: 0.4,
+                                weight: 0,
+                                interactive: false
+                            });
+
+                            triangulationLayer.addLayer(cell);
+                        }
+                    }
+                }
             }
 
             // Apply layer visibility
@@ -612,28 +1044,35 @@
                 map.removeLayer(routeLayer);
             }
 
-            // Fit bounds
-            if (routeCoords.length > 0) {
+            // Fit bounds (only on initial load)
+            if (!map._hasFitted && routeCoords.length > 0) {
                 map.fitBounds(L.latLngBounds(routeCoords));
+                map._hasFitted = true;
+            }
+            } catch (vizError) {
+                console.error('Visualization error:', vizError);
             }
         }
 
         // Update stats
         function updateStats() {
-            if (filteredData.length === 0) {
-                document.getElementById('sessionStats').innerHTML = '<p>No data</p>';
+            const displayData = getTransmitterFilteredData(filteredData, transmittersCache);
+
+            if (displayData.length === 0) {
+                document.getElementById('sessionStats').innerHTML = '<p>No data for selected filters</p>';
                 return;
             }
 
-            const start = new Date(filteredData[0].timestamp);
-            const end = new Date(filteredData[filteredData.length - 1].timestamp);
+            const start = new Date(displayData[0].timestamp);
+            const end = new Date(displayData[displayData.length - 1].timestamp);
             const duration = (end - start) / 1000 / 60; // minutes
 
-            const rsrpValues = filteredData
+            const rsrpValues = displayData
                 .map(p => p.signal.rsrp)
                 .filter(v => v !== null);
 
-            let html = `<p><strong>Points:</strong> ${filteredData.length}</p>`;
+            let html = `<p><strong>Sessions:</strong> ${currentSessions.length}</p>`;
+            html += `<p><strong>Points:</strong> ${displayData.length}</p>`;
             html += `<p><strong>Duration:</strong> ${Math.round(duration)}min</p>`;
 
             if (rsrpValues.length > 0) {
@@ -645,6 +1084,34 @@
             }
 
             document.getElementById('sessionStats').innerHTML = html;
+        }
+
+        // Select all sessions
+        function selectAllSessions() {
+            const select = document.getElementById('sessionSelect');
+            for (let i = 0; i < select.options.length; i++) {
+                select.options[i].selected = true;
+            }
+            const selectedOptions = Array.from(select.selectedOptions);
+            const sessionIds = selectedOptions.map(opt => opt.value);
+            loadSessions(sessionIds);
+        }
+
+        // Clear all sessions
+        function clearAllSessions() {
+            const select = document.getElementById('sessionSelect');
+            for (let i = 0; i < select.options.length; i++) {
+                select.options[i].selected = false;
+            }
+            // Clear the map
+            markersLayer.clearLayers();
+            routeLayer.clearLayers();
+            triangulationLayer.clearLayers();
+            currentData = [];
+            filteredData = [];
+            currentSessions = [];
+            document.getElementById('sessionStats').innerHTML = '<p>No sessions selected</p>';
+            document.getElementById('legend').style.display = 'none';
         }
 
         // Toggle control panel
@@ -665,11 +1132,11 @@
             showHeatmap = !showHeatmap;
             document.getElementById('toggle-heatmap').classList.toggle('active');
 
-            if (heatLayer) {
+            if (triangulationLayer) {
                 if (showHeatmap) {
-                    heatLayer.addTo(map);
+                    triangulationLayer.addTo(map);
                 } else {
-                    map.removeLayer(heatLayer);
+                    map.removeLayer(triangulationLayer);
                 }
             }
         }
@@ -698,20 +1165,35 @@
 
         // Export to CSV
         function exportToCSV() {
-            if (!currentSession) {
-                alert('Please select a session first');
+            if (!currentSessions || currentSessions.length === 0) {
+                alert('Please select at least one session first');
                 return;
             }
 
-            window.location.href = `api/export/${currentSession}`;
+            if (currentSessions.length === 1) {
+                window.location.href = `api/export/${currentSessions[0]}`;
+            } else {
+                // For multiple sessions, export the first one or show a dialog
+                const response = confirm(`You have ${currentSessions.length} sessions selected.\n\nExport all as separate files?\n\nOK = Export all\nCancel = Export first session only`);
+
+                if (response) {
+                    // Export all sessions
+                    currentSessions.forEach(sessionId => {
+                        window.open(`api/export/${sessionId}`, '_blank');
+                    });
+                } else {
+                    // Export first session only
+                    window.location.href = `api/export/${currentSessions[0]}`;
+                }
+            }
         }
 
         function refreshSessions() {
-            loadSessions();
+            window.location.reload();
         }
 
         // Initialize
-        loadSessions();
+        loadSessionsList();
     </script>
 </body>
 </html>
