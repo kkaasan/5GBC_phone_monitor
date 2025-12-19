@@ -21,6 +21,7 @@ import android.telephony.CellInfoNr
 import android.telephony.CellSignalStrengthLte
 import android.telephony.CellSignalStrengthNr
 import android.telephony.TelephonyManager
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
@@ -42,26 +43,38 @@ class MonitoringService : Service() {
 
     private val scope = CoroutineScope(Dispatchers.IO)
     private var job: Job? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     private var sessionId: String? = null
+    private var lastLocation: Location? = null
+    private var locationManager: LocationManager? = null
+    private var locationListener: LocationListener? = null
+    private var locationCallbackRegistered = false
 
     override fun onCreate() {
         super.onCreate()
         startForeground(1, createNotification())
-        job = scope.launch {
-            while (isActive) {
-                val start = SystemClock.elapsedRealtime()
-                captureAndLogSnapshot()
-                val elapsed = SystemClock.elapsedRealtime() - start
-                val wait = (30_000L - elapsed).coerceAtLeast(0L)
-                delay(wait)
-            }
-        }
+        acquireWakeLock()
+        locationManager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        ensureLocationUpdates()
+        restoreExistingSessionId()
+        startMonitoringLoop()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Ensure we stay alive when the app is backgrounded or the screen is off.
+        startForeground(1, createNotification())
+        acquireWakeLock()
+        ensureLocationUpdates()
+        startMonitoringLoop()
+        return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
         job?.cancel()
+        releaseWakeLock()
+        stopLocationUpdates()
         updateDataIndex()
     }
 
@@ -85,6 +98,59 @@ class MonitoringService : Service() {
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
             .build()
+    }
+
+    private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "CBMonitor::CaptureWakeLock").apply {
+            setReferenceCounted(false)
+            try {
+                acquire()
+            } catch (_: Exception) {
+                // If acquisition fails, continue without it
+            }
+        }
+    }
+
+    private fun releaseWakeLock() {
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (_: Exception) {
+            // Ignore release errors
+        } finally {
+            wakeLock = null
+        }
+    }
+
+    private fun startMonitoringLoop() {
+        if (job?.isActive == true) return
+        job = scope.launch {
+            while (isActive) {
+                val start = SystemClock.elapsedRealtime()
+                captureAndLogSnapshot()
+                val elapsed = SystemClock.elapsedRealtime() - start
+                val wait = (30_000L - elapsed).coerceAtLeast(0L)
+                delay(wait)
+            }
+        }
+    }
+
+    private fun restoreExistingSessionId() {
+        val dir = getExternalFilesDir("cb_monitor") ?: filesDir
+        val statusFile = File(dir, "status.json")
+        if (!statusFile.exists()) return
+        try {
+            val json = JSONObject(statusFile.readText())
+            val existing = json.optString("session_id").takeIf { it.isNotBlank() }
+            if (existing != null) {
+                sessionId = existing
+            }
+        } catch (_: Exception) {
+            // Best-effort reuse of previous session id
+        }
     }
 
     private fun captureAndLogSnapshot() {
@@ -271,8 +337,15 @@ class MonitoringService : Service() {
     }
 
     private fun getLocation(): Location? {
+        val recent = lastLocation?.takeIf {
+            val ageMs = (SystemClock.elapsedRealtimeNanos() - it.elapsedRealtimeNanos) / 1_000_000L
+            ageMs in 0..30_000
+        }
+        if (recent != null) return recent
+
+        ensureLocationUpdates()
         return try {
-            val lm = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            val lm = locationManager ?: getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return lastLocation
 
             val hasFine = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
             val hasCoarse = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -329,6 +402,7 @@ class MonitoringService : Service() {
             }
 
             if (freshLocation != null) {
+                lastLocation = freshLocation
                 return freshLocation
             }
 
@@ -348,7 +422,62 @@ class MonitoringService : Service() {
                 }
                 .maxByOrNull { it.time }
         } catch (_: Exception) {
-            null
+            lastLocation
+        }
+    }
+
+    private fun ensureLocationUpdates() {
+        if (locationCallbackRegistered) return
+        val lm = locationManager ?: return
+        val hasFine = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (!hasFine && !hasCoarse) return
+
+        val listener = object : LocationListener {
+            override fun onLocationChanged(location: Location) {
+                lastLocation = location
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
+            override fun onProviderEnabled(provider: String) {}
+            override fun onProviderDisabled(provider: String) {}
+        }
+        locationListener = listener
+        try {
+            lm.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER,
+                5_000L,
+                0f,
+                listener,
+                Looper.getMainLooper()
+            )
+        } catch (_: Exception) {
+            // ignore
+        }
+        try {
+            lm.requestLocationUpdates(
+                LocationManager.NETWORK_PROVIDER,
+                10_000L,
+                0f,
+                listener,
+                Looper.getMainLooper()
+            )
+        } catch (_: Exception) {
+            // ignore
+        }
+        locationCallbackRegistered = true
+    }
+
+    private fun stopLocationUpdates() {
+        if (!locationCallbackRegistered) return
+        val lm = locationManager ?: return
+        try {
+            locationListener?.let { lm.removeUpdates(it) }
+        } catch (_: Exception) {
+        } finally {
+            locationCallbackRegistered = false
+            locationListener = null
         }
     }
 

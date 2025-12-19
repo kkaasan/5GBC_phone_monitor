@@ -169,6 +169,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
+                android:id="@+id/gpsRow"
                 android:weightSum="2"
                 android:paddingTop="6dp"
                 android:paddingBottom="6dp">
@@ -190,6 +191,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
+                android:id="@+id/coordsRow"
                 android:weightSum="2">
                 <TextView
                     android:layout_width="0dp"

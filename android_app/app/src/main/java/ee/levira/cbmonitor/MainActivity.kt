@@ -12,6 +12,7 @@ import android.os.SystemClock
 import android.graphics.Color
 import android.widget.Button
 import android.widget.TextView
+import android.widget.LinearLayout
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -44,6 +45,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var gpsStatusValue: TextView
     private lateinit var coordsValue: TextView
     private lateinit var logView: TextView
+    private lateinit var gpsRow: LinearLayout
+    private lateinit var coordsRow: LinearLayout
     private var pendingStartAction: (() -> Unit)? = null
     private val logUpdateHandler = Handler(Looper.getMainLooper())
     private var isUpdatingLogs = false
@@ -85,6 +88,8 @@ class MainActivity : AppCompatActivity() {
         gpsStatusValue = findViewById(R.id.gpsStatusValue)
         coordsValue = findViewById(R.id.coordsValue)
         logView = findViewById(R.id.logView)
+        gpsRow = findViewById(R.id.gpsRow)
+        coordsRow = findViewById(R.id.coordsRow)
         val startButton: Button = findViewById(R.id.startButton)
 
         startButton.setOnClickListener {
@@ -250,6 +255,8 @@ class MainActivity : AppCompatActivity() {
         val defaultColor = Color.TRANSPARENT
         gpsStatusValue.setBackgroundColor(if (warnGps) highlightColor else defaultColor)
         coordsValue.setBackgroundColor(if (warnGps) highlightColor else defaultColor)
+        gpsRow.setBackgroundColor(if (warnGps) highlightColor else defaultColor)
+        coordsRow.setBackgroundColor(if (warnGps) highlightColor else defaultColor)
         scheduleNextLiveUpdate()
     }
 
