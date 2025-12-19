@@ -23,15 +23,18 @@ Professional 5G Broadcast signal analysis and coverage mapping tool for real-tim
 cb_monitor/
 ├── cb_monitor.py          # Main monitoring backend (ADB integration)
 ├── api_server.py          # Web API server with control endpoints
-├── start.sh               # Quick-start script (server + monitoring)
+├── start.sh               # Quick-start script (starts web API server)
 ├── index.html             # Main control interface
 ├── dashboard.html         # Live monitoring dashboard
-├── heatmap.html          # Coverage heatmap viewer
-├── sessions.html         # Session browser and export
+├── heatmap.html           # Coverage heatmap viewer
+├── sessions.html          # Session browser and export
+├── settings.html          # Transmitter configuration (tower locations & PCI)
 ├── data/                  # Generated data files
 │   ├── status.json       # Current live status (with session_id)
 │   └── data_index.json   # Session index and metadata
 ├── logs/                  # Session log files (.jsonl)
+├── static/                # Additional static assets (if any)
+├── favicon.svg            # App icon
 └── test_phone.py         # Device testing utilities
 ```
 
@@ -70,10 +73,11 @@ cd 5GBC_phone_monitor
 # Connect your phone via USB and enable USB debugging
 # Accept the "Allow USB debugging" prompt on your phone
 
-# Start the server (macOS/Linux)
+# Start the web server (macOS/Linux)
+# Monitoring is controlled from the web UI (Home page)
 ./start.sh
 
-# Start the server (Windows)
+# Start the web server (Windows)
 python api_server.py 8888
 ```
 
@@ -130,7 +134,21 @@ The dashboard loads all historical data from the current session on page load, s
   - 📍 **Markers**: Individual measurement points with popups
 - **Export to CSV**: Download session data
 - **Collapsible Controls**: Clean interface with expandable control panel
-- **Transmitter Filters**: Heatmap/markers honor active transmitters (by PCI); click tower icons to toggle coverage on/off. At least one transmitter must be active to render heatmap.
+-- **Transmitter Filters**: Heatmap/markers honor active transmitters (by PCI); click tower icons to toggle coverage on/off. At least one transmitter with a configured PCI must be active to render the heatmap.
+
+### 4. Transmitter Settings (`settings.html`)
+
+**Purpose:**
+- Configure transmitter locations and PCIs to drive **transmitter-aware interpolation** in the heatmap.
+- Persist configuration to `data/transmitters.json` via the API server.
+
+**Features:**
+- 📡 **Interactive map**: Click on the map to add transmitters; drag markers to refine positions.
+- ✏️ **Editable list**: Rename transmitters, edit latitude/longitude, and set **PCI** (0–503).
+- 💾 **Save to file**: Writes configuration through `POST /api/transmitters/save` so `heatmap.html` can use it.
+- 🔗 **Integration with heatmap**:
+  - Each measurement point is matched to a transmitter by PCI.
+  - You can toggle transmitters on/off directly in `heatmap.html`; only active transmitters contribute to the RF interpolation.
 
 **Signal Classification (OR Logic):**
 - 🟩 **16-QAM Capable**: RSRP ≥ -95 dBm OR RSRQ ≥ -10 dB
@@ -138,7 +156,7 @@ The dashboard loads all historical data from the current session on page load, s
 - 🟥 **QPSK Reception**: RSRP ≥ -115 dBm OR RSRQ ≥ -17 dB
 - ⚫ **Unusable**: RSRP < -120 dBm AND RSRQ < -20 dB
 
-### 4. Sessions & Export (`sessions.html`)
+### 5. Sessions & Export (`sessions.html`)
 
 **Features:**
 - Browse all captured sessions with statistics
@@ -148,7 +166,10 @@ The dashboard loads all historical data from the current session on page load, s
   - Start time
   - GPS availability
 - **View Map**: Opens heatmap with selected session pre-loaded
-- **Export CSV**: Download session data with all parameters
+- **Export CSV**: Download per-session data with all parameters
+- **Bulk operations** (via the API server):
+  - Multi-select sessions and export them combined via `POST /api/sessions/export`
+  - Multi-select sessions and delete them via `POST /api/sessions/delete`
 
 ## 📝 Command Line Usage
 
@@ -382,11 +403,17 @@ F12 → Network tab → Disable cache checkbox
 
 The API server (`api_server.py`) provides:
 
-```
-GET  /api/monitor/status        - Get monitoring and device status
-POST /api/monitor/start         - Start monitoring
-POST /api/monitor/stop          - Stop monitoring
-GET  /api/export/{session_id}   - Export session to CSV
+```text
+GET  /api/monitor/status          - Get monitoring and device status
+POST /api/monitor/start           - Start monitoring (spawns cb_monitor.py monitor)
+POST /api/monitor/stop            - Stop monitoring (SIGINT to cb_monitor.py)
+
+GET  /api/export/{session_id}     - Export a single session to CSV
+
+POST /api/transmitters/save       - Save transmitter configuration to data/transmitters.json
+
+POST /api/sessions/delete         - Delete a session (log file + index entry)
+POST /api/sessions/export         - Export multiple sessions as a single combined CSV
 ```
 
 ## 🎉 Features Summary
