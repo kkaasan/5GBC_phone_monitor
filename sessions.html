@@ -133,6 +133,14 @@
             background: #0ea970;
         }
 
+        .import-btn {
+            background: #3b82f6;
+        }
+
+        .import-btn:hover {
+            background: #2563eb;
+        }
+
         .session-card {
             background: #f8f9fa;
             padding: 20px;
@@ -348,6 +356,7 @@
                     <button class="select-btn" onclick="clearSelection()">✕ Clear</button>
                     <button class="bulk-btn export" onclick="exportSelected()">📥 Export Selected as CSV</button>
                     <button class="bulk-btn delete" onclick="deleteSelected()">🗑️ Delete Selected</button>
+                    <button class="refresh-btn import-btn" id="importBtn" onclick="importFromPhone()">📲 Import from phone</button>
                     <button class="refresh-btn" onclick="loadSessions()">🔄 Refresh</button>
                 </div>
             </div>
@@ -624,6 +633,39 @@
             }
             window.selectedSessions = new Set();
             loadSessions();
+        }
+
+        async function importFromPhone() {
+            const btn = document.getElementById('importBtn');
+            const originalText = btn ? btn.textContent : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Importing...';
+            }
+
+            try {
+                const response = await fetch('/api/sessions/import_phone', { method: 'POST' });
+                if (!response.ok) {
+                    throw new Error(`Server responded ${response.status}`);
+                }
+
+                const result = await response.json();
+                const parts = [];
+                if (result.message) parts.push(result.message);
+                if (result.imported?.length) parts.push(`Imported: ${result.imported.join(', ')}`);
+                if (result.skipped_existing?.length) parts.push(`Skipped (already present): ${result.skipped_existing.join(', ')}`);
+                if (result.failed?.length) parts.push(`Failed: ${result.failed.join(', ')}`);
+
+                alert(parts.join('\n') || 'Import finished');
+                loadSessions();
+            } catch (error) {
+                alert('Failed to import logs from phone: ' + error.message);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = originalText || '📲 Import from phone';
+                }
+            }
         }
 
         // Load sessions on page load

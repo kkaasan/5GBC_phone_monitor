@@ -10,12 +10,104 @@ import json
 import csv
 import subprocess
 import signal
+import shutil
 from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 DATA_DIR = Path(__file__).parent / "data"
 LOGS_DIR = Path(__file__).parent / "logs"
+PHONE_LOG_DIR = "/sdcard/Android/data/ee.levira.cbmonitor/files/cb_monitor"
+ADB_CANDIDATES = [
+    '/opt/homebrew/bin/adb',  # Apple Silicon default
+    '/usr/local/bin/adb',     # Intel/macOS default
+    'adb'                     # Fallback to PATH
+]
+
+def resolve_adb_path():
+    """Return the first available ADB path from common locations"""
+    for candidate in ADB_CANDIDATES:
+        if candidate == 'adb':
+            if shutil.which(candidate):
+                return candidate
+        elif os.path.exists(candidate):
+            return candidate
+    return None
+
+def build_session_metadata(log_file, session_id):
+    """Compute session metadata from a JSONL log"""
+    if not log_file.exists():
+        return None
+
+    start_time = None
+    end_time = None
+    count = 0
+    lats = []
+    lons = []
+
+    with open(log_file, "r") as f:
+        for line in f:
+            if not line.strip():
+                continue
+            try:
+                point = json.loads(line)
+            except Exception:
+                continue
+
+            count += 1
+            ts = point.get("timestamp")
+            if ts:
+                if not start_time:
+                    start_time = ts
+                end_time = ts
+
+            loc = point.get("location") or {}
+            lat = loc.get("latitude")
+            lon = loc.get("longitude")
+            try:
+                if lat not in [None, ""]:
+                    lats.append(float(lat))
+                if lon not in [None, ""]:
+                    lons.append(float(lon))
+            except Exception:
+                pass
+
+    if count == 0 or not start_time or not end_time:
+        return None
+
+    return {
+        "session_id": session_id,
+        "start_time": start_time,
+        "end_time": end_time,
+        "count": count,
+        "bounds": {
+            "min_lat": min(lats) if lats else None,
+            "max_lat": max(lats) if lats else None,
+            "min_lon": min(lons) if lons else None,
+            "max_lon": max(lons) if lons else None,
+        },
+    }
+
+def update_data_index(session_metadata):
+    """Add or update a session entry in data_index.json"""
+    index = {"sessions": []}
+    index_file = DATA_DIR / "data_index.json"
+    if index_file.exists():
+        try:
+            with open(index_file, "r") as f:
+                index = json.load(f)
+        except Exception:
+            index = {"sessions": []}
+
+    existing = [s for s in index.get("sessions", []) if s.get("session_id") == session_metadata["session_id"]]
+    if existing:
+        index["sessions"].remove(existing[0])
+
+    index.setdefault("sessions", []).append(session_metadata)
+    index["sessions"].sort(key=lambda x: x.get("start_time", ""), reverse=True)
+
+    with open(index_file, "w") as f:
+        json.dump(index, f, indent=2)
 
 # Global to track monitoring process
 monitor_process = None
@@ -75,6 +167,9 @@ class APIHandler(SimpleHTTPRequestHandler):
                 return
             elif path_parts[1] == 'sessions' and path_parts[2] == 'export':
                 self.handle_sessions_export()
+                return
+            elif path_parts[1] == 'sessions' and path_parts[2] == 'import_phone':
+                self.handle_sessions_import_phone()
                 return
 
         self.send_error(404, "Not found")
@@ -404,6 +499,102 @@ class APIHandler(SimpleHTTPRequestHandler):
             })
 
         self.wfile.write(output.getvalue().encode('utf-8'))
+
+    def handle_sessions_import_phone(self):
+        """Pull logs from phone storage and delete them on the device"""
+        adb_path = resolve_adb_path()
+        if not adb_path:
+            self.send_error(500, "ADB not found on host")
+            return
+
+        # Verify device connection
+        try:
+            result = subprocess.run([adb_path, 'devices'], capture_output=True, text=True, timeout=5)
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr.strip() or "ADB error")
+            device_lines = [line for line in result.stdout.splitlines() if line.strip() and not line.startswith('List')]
+            connected = [line for line in device_lines if 'device' in line.split()]
+            if not connected:
+                self.send_error(400, "No ADB device connected")
+                return
+        except Exception as e:
+            self.send_error(500, f"ADB devices check failed: {e}")
+            return
+
+        # List log files on the device
+        try:
+            list_cmd = [adb_path, 'shell', 'ls', f"{PHONE_LOG_DIR}/*.jsonl"]
+            list_result = subprocess.run(list_cmd, capture_output=True, text=True, timeout=10)
+            if list_result.returncode != 0 or "No such file" in list_result.stderr:
+                response = {"success": True, "imported": [], "skipped_existing": [], "failed": [], "message": "No logs found on device"}
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(response).encode('utf-8'))
+                return
+
+            remote_files = [line.strip() for line in list_result.stdout.splitlines() if line.strip() and not line.strip().startswith('ls:')]
+        except Exception as e:
+            self.send_error(500, f"Failed to list logs on device: {e}")
+            return
+
+        imported = []
+        skipped_existing = []
+        failed = []
+
+        LOGS_DIR.mkdir(exist_ok=True)
+        DATA_DIR.mkdir(exist_ok=True)
+
+        for remote_file in remote_files:
+            session_id = Path(remote_file).stem
+            local_path = LOGS_DIR / f"{session_id}.jsonl"
+
+            if local_path.exists():
+                skipped_existing.append(session_id)
+                # Remove from device to avoid re-import prompts
+                subprocess.run([adb_path, 'shell', 'rm', remote_file], capture_output=True, text=True)
+                continue
+
+            try:
+                pull_result = subprocess.run([adb_path, 'pull', remote_file, str(local_path)],
+                                             capture_output=True, text=True, timeout=30)
+                if pull_result.returncode != 0:
+                    failed.append(session_id)
+                    # Ensure partially pulled file does not remain
+                    if local_path.exists():
+                        local_path.unlink()
+                    continue
+
+                # Delete from device after successful pull
+                subprocess.run([adb_path, 'shell', 'rm', remote_file], capture_output=True, text=True)
+
+                metadata = build_session_metadata(local_path, session_id)
+                if metadata:
+                    update_data_index(metadata)
+                    imported.append(session_id)
+                else:
+                    failed.append(session_id)
+            except Exception:
+                failed.append(session_id)
+                if local_path.exists():
+                    local_path.unlink()
+
+        message = "Import complete"
+        if not imported and not skipped_existing:
+            message = "No new sessions imported"
+
+        response = {
+            "success": True,
+            "imported": imported,
+            "skipped_existing": skipped_existing,
+            "failed": failed,
+            "message": message
+        }
+
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(response).encode('utf-8'))
 
 def start_server(port=8888):
     """Start the API server"""
