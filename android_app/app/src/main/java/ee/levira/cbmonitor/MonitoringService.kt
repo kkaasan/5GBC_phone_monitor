@@ -57,8 +57,6 @@ class MonitoringService : Service() {
         acquireWakeLock()
         locationManager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
         ensureLocationUpdates()
-        restoreExistingSessionId()
-        startMonitoringLoop()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -66,6 +64,10 @@ class MonitoringService : Service() {
         startForeground(1, createNotification())
         acquireWakeLock()
         ensureLocationUpdates()
+        if (sessionId == null) {
+            sessionId = intent?.getStringExtra("session_id")
+                ?: SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        }
         startMonitoringLoop()
         return START_STICKY
     }
@@ -135,21 +137,6 @@ class MonitoringService : Service() {
                 val wait = (30_000L - elapsed).coerceAtLeast(0L)
                 delay(wait)
             }
-        }
-    }
-
-    private fun restoreExistingSessionId() {
-        val dir = getExternalFilesDir("cb_monitor") ?: filesDir
-        val statusFile = File(dir, "status.json")
-        if (!statusFile.exists()) return
-        try {
-            val json = JSONObject(statusFile.readText())
-            val existing = json.optString("session_id").takeIf { it.isNotBlank() }
-            if (existing != null) {
-                sessionId = existing
-            }
-        } catch (_: Exception) {
-            // Best-effort reuse of previous session id
         }
     }
 

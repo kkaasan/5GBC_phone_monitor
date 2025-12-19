@@ -1,262 +1,279 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="24dp"
-    android:gravity="center_horizontal">
-
-    <TextView
-        android:id="@+id/titleText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="5GBC Monitor (On-device)"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:paddingBottom="16dp" />
-
-    <TextView
-        android:id="@+id/statusText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Press Start to begin logging"
-        android:paddingBottom="16dp" />
+    android:layout_height="match_parent">
 
     <LinearLayout
+        android:id="@+id/contentRoot"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:orientation="vertical"
-        android:padding="12dp"
-        android:background="#EEF3F7"
-        android:layout_marginBottom="16dp">
+        android:padding="24dp"
+        android:gravity="center_horizontal">
 
         <TextView
-            android:id="@+id/liveTitle"
+            android:id="@+id/titleText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Live cell info (updates every 1s)"
+            android:text="5GBC Monitor (On-device)"
+            android:textSize="20sp"
             android:textStyle="bold"
-            android:textSize="14sp"
-            android:paddingBottom="8dp" />
+            android:paddingBottom="16dp" />
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Press Start to begin logging"
+            android:paddingBottom="16dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:divider="?android:attr/dividerHorizontal"
-            android:showDividers="middle">
+            android:padding="12dp"
+            android:background="#EEF3F7"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:id="@+id/liveTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Live cell info (updates every 1s)"
+                android:textStyle="bold"
+                android:textSize="14sp"
+                android:paddingBottom="8dp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:weightSum="2"
-                android:paddingBottom="6dp">
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Network ID" />
-                <TextView
-                    android:id="@+id/networkIdValue"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textAlignment="viewEnd"
-                    android:textStyle="bold" />
-            </LinearLayout>
+                android:orientation="vertical"
+                android:divider="?android:attr/dividerHorizontal"
+                android:showDividers="middle">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:weightSum="2"
-                android:paddingBottom="6dp">
-                <TextView
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="TAC" />
-                <TextView
-                    android:id="@+id/tacValue"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textAlignment="viewEnd"
-                    android:textStyle="bold" />
-            </LinearLayout>
+                    android:orientation="horizontal"
+                    android:weightSum="2"
+                    android:paddingBottom="6dp">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Network ID" />
+                    <TextView
+                        android:id="@+id/networkIdValue"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textAlignment="viewEnd"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:weightSum="2"
-                android:paddingBottom="6dp">
-                <TextView
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="PCI / Cell ID" />
-                <TextView
-                    android:id="@+id/pciValue"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textAlignment="viewEnd"
-                    android:textStyle="bold" />
-            </LinearLayout>
+                    android:orientation="horizontal"
+                    android:weightSum="2"
+                    android:paddingBottom="6dp">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="TAC" />
+                    <TextView
+                        android:id="@+id/tacValue"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textAlignment="viewEnd"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:weightSum="2"
-                android:paddingBottom="6dp">
-                <TextView
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="EARFCN / Channel" />
-                <TextView
-                    android:id="@+id/earfcnValue"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textAlignment="viewEnd"
-                    android:textStyle="bold" />
-            </LinearLayout>
+                    android:orientation="horizontal"
+                    android:weightSum="2"
+                    android:paddingBottom="6dp">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="PCI / Cell ID" />
+                    <TextView
+                        android:id="@+id/pciValue"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textAlignment="viewEnd"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:weightSum="2"
-                android:paddingBottom="6dp">
-                <TextView
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="RSSI / RSRP" />
-                <TextView
-                    android:id="@+id/rssiValue"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textAlignment="viewEnd"
-                    android:textStyle="bold" />
-            </LinearLayout>
+                    android:orientation="horizontal"
+                    android:weightSum="2"
+                    android:paddingBottom="6dp">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="EARFCN / Channel" />
+                    <TextView
+                        android:id="@+id/earfcnValue"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textAlignment="viewEnd"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:weightSum="2">
-                <TextView
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="RSRQ" />
-                <TextView
-                    android:id="@+id/rsrqValue"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textAlignment="viewEnd"
-                    android:textStyle="bold" />
-            </LinearLayout>
+                    android:orientation="horizontal"
+                    android:weightSum="2"
+                    android:paddingBottom="6dp">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="RSSI / RSRP" />
+                    <TextView
+                        android:id="@+id/rssiValue"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textAlignment="viewEnd"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:id="@+id/gpsRow"
-                android:weightSum="2"
-                android:paddingTop="6dp"
-                android:paddingBottom="6dp">
-                <TextView
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="GPS fix" />
-                <TextView
-                    android:id="@+id/gpsStatusValue"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textAlignment="viewEnd"
-                    android:textStyle="bold" />
-            </LinearLayout>
+                    android:orientation="horizontal"
+                    android:weightSum="2">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="RSRQ" />
+                    <TextView
+                        android:id="@+id/rsrqValue"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textAlignment="viewEnd"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:id="@+id/coordsRow"
-                android:weightSum="2">
-                <TextView
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Coordinates" />
-                <TextView
-                    android:id="@+id/coordsValue"
-                    android:layout_width="0dp"
+                    android:orientation="horizontal"
+                    android:id="@+id/gpsRow"
+                    android:weightSum="2"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="6dp">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="GPS fix" />
+                    <TextView
+                        android:id="@+id/gpsStatusValue"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textAlignment="viewEnd"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textAlignment="viewEnd"
-                    android:textStyle="bold" />
+                    android:orientation="horizontal"
+                    android:id="@+id/coordsRow"
+                    android:weightSum="2">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Coordinates" />
+                    <TextView
+                        android:id="@+id/coordsValue"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textAlignment="viewEnd"
+                        android:textStyle="bold" />
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
 
-    <Button
-        android:id="@+id/startButton"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Start logging" />
-
-    <TextView
-        android:id="@+id/logTitle"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Latest Log Entries:"
-        android:textSize="14sp"
-        android:textStyle="bold"
-        android:paddingTop="24dp"
-        android:paddingBottom="8dp" />
-
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:background="#f5f5f5"
-        android:padding="12dp">
-
-        <TextView
-            android:id="@+id/logView"
+        <Button
+            android:id="@+id/startButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="No log entries yet..."
-            android:textSize="11sp"
-            android:fontFamily="monospace"
-            android:textColor="#333333" />
+            android:text="Start logging" />
 
-    </ScrollView>
+        <TextView
+            android:id="@+id/logTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Latest Log Entries:"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:paddingTop="24dp"
+            android:paddingBottom="8dp" />
 
-    <TextView
-        android:id="@+id/infoText"
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="#f5f5f5"
+            android:padding="12dp">
+
+            <TextView
+                android:id="@+id/logView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="No log entries yet..."
+                android:textSize="11sp"
+                android:fontFamily="monospace"
+                android:textColor="#333333" />
+
+        </ScrollView>
+
+        <TextView
+            android:id="@+id/infoText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Logs: Android/data/ee.levira.cbmonitor/files/cb_monitor/"
+            android:textSize="10sp"
+            android:paddingTop="8dp" />
+
+        <TextView
+            android:id="@+id/disclaimerText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="5GBC Monitor App is developed by Kristo Kaasan from Levira for informational purposes to measure and gather 5G Broadcast signal data for the desktop app. It is part of the Pocket Siren project from Estonia. http://pocketsiren.eu"
+            android:textSize="9sp"
+            android:paddingTop="8dp" />
+
+    </LinearLayout>
+
+    <View
+        android:id="@+id/loggingBorder"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Logs: Android/data/ee.levira.cbmonitor/files/cb_monitor/"
-        android:textSize="10sp"
-        android:paddingTop="8dp" />
+        android:layout_height="match_parent"
+        android:background="@drawable/logging_border"
+        android:importantForAccessibility="no"
+        android:clickable="false"
+        android:focusable="false"
+        android:visibility="gone" />
 
-    <TextView
-        android:id="@+id/disclaimerText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="5GBC Monitor App is developed by Kristo Kaasan from Levira for informational purposes to measure and gather 5G Broadcast signal data for the desktop app. It is part of the Pocket Siren project from Estonia. http://pocketsiren.eu"
-        android:textSize="9sp"
-        android:paddingTop="8dp" />
-
-</LinearLayout>
+</FrameLayout>

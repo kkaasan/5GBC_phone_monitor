@@ -13,6 +13,7 @@ import android.graphics.Color
 import android.widget.Button
 import android.widget.TextView
 import android.widget.LinearLayout
+import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -59,6 +60,7 @@ class MainActivity : AppCompatActivity() {
     private var lastLocation: Location? = null
     private var locationCallbackRegistered = false
     private var liveLocationListener: LocationListener? = null
+    private lateinit var loggingBorder: View
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -90,6 +92,7 @@ class MainActivity : AppCompatActivity() {
         logView = findViewById(R.id.logView)
         gpsRow = findViewById(R.id.gpsRow)
         coordsRow = findViewById(R.id.coordsRow)
+        loggingBorder = findViewById(R.id.loggingBorder)
         val startButton: Button = findViewById(R.id.startButton)
 
         startButton.setOnClickListener {
@@ -105,6 +108,7 @@ class MainActivity : AppCompatActivity() {
         startLiveUpdates()
         isLogging = isServiceRunning()
         updateButtonLabel()
+        updateLoggingBorder()
         if (isLogging) {
             startLogUpdates()
             statusText.text = "Logging active (every 30 s)"
@@ -118,6 +122,7 @@ class MainActivity : AppCompatActivity() {
         startLiveUpdates()
         isLogging = isServiceRunning()
         updateButtonLabel()
+        updateLoggingBorder()
         if (isLogging) startLogUpdates()
     }
 
@@ -166,13 +171,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun startLogging() {
         requestPermissionsIfNeeded {
+            val newSessionId = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             ContextCompat.startForegroundService(
                 this,
-                Intent(this, MonitoringService::class.java)
+                Intent(this, MonitoringService::class.java).apply {
+                    putExtra("session_id", newSessionId)
+                }
             )
             isLogging = true
             statusText.text = "Logging started (every 30 s)"
             updateButtonLabel()
+            updateLoggingBorder()
             startLogUpdates()
         }
     }
@@ -182,6 +191,7 @@ class MainActivity : AppCompatActivity() {
         isLogging = false
         statusText.text = "Logging stopped"
         updateButtonLabel()
+        updateLoggingBorder()
         stopLogUpdates()
     }
 
@@ -237,6 +247,12 @@ class MainActivity : AppCompatActivity() {
         liveUpdateHandler.postDelayed({
             updateLiveData()
         }, 1000) // every second
+    }
+
+    private fun updateLoggingBorder() {
+        if (::loggingBorder.isInitialized) {
+            loggingBorder.visibility = if (isLogging) View.VISIBLE else View.GONE
+        }
     }
 
     private fun updateLiveData() {
