@@ -2,12 +2,14 @@
 
 Professional 5G Broadcast signal analysis and coverage mapping tool for real-time RSRP/RSRQ monitoring with GPS correlation and modulation threshold analysis.
 
-![Version](https://img.shields.io/badge/version-1.1-blue)
+![Version](https://img.shields.io/badge/version-1.2-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
+![Android](https://img.shields.io/badge/android-8.0+-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 ## 🌟 Features
 
+### Desktop Monitoring (ADB-based)
 - **Real-time Signal Monitoring** - RSRP, RSRQ, RSSI, SNR metrics via ADB
 - **GPS-Correlated Tracking** - High-precision location data with route visualization
 - **Interactive Heatmap** - Coverage analysis with 16-QAM/QPSK modulation thresholds
@@ -16,6 +18,15 @@ Professional 5G Broadcast signal analysis and coverage mapping tool for real-tim
 - **Web Control Interface** - Start/stop monitoring, device status, and session browser
 - **CSV Export** - Full parameter export for post-processing and reporting
 - **Modulation Analysis** - Signal quality classification based on 3GPP standards
+
+### 📱 Native Android App (NEW!)
+- **Standalone Monitoring** - No PC or ADB required, runs independently on your phone
+- **Background Logging** - Continues monitoring with screen off using foreground service
+- **Robust Network Collection** - Retry mechanism with exponential backoff for reliable data
+- **Battery Optimization** - Requests Doze mode exemption for uninterrupted monitoring
+- **Live Cell View** - Real-time display of signal metrics and GPS status
+- **Automatic File Export** - Saves logs to device storage in JSONL format
+- **Session Management** - Compatible with desktop heatmap viewer
 
 ## 📁 Project Structure
 
@@ -29,6 +40,12 @@ cb_monitor/
 ├── heatmap.html           # Coverage heatmap viewer
 ├── sessions.html          # Session browser and export
 ├── settings.html          # Transmitter configuration (tower locations & PCI)
+├── android_app/           # Native Android app (standalone monitoring)
+│   ├── app/src/main/java/ee/levira/cbmonitor/
+│   │   ├── MainActivity.kt          # App UI and controls
+│   │   └── MonitoringService.kt     # Background monitoring service
+│   └── app/build/outputs/apk/debug/
+│       └── app-debug.apk            # Pre-built APK for installation
 ├── data/                  # Generated data files
 │   ├── status.json       # Current live status (with session_id)
 │   └── data_index.json   # Session index and metadata
@@ -38,7 +55,57 @@ cb_monitor/
 └── test_phone.py         # Device testing utilities
 ```
 
-## 🚀 Quick Start
+## 📲 Android App Installation
+
+### Download Pre-built APK
+
+**Direct Download:**
+[📥 Download app-debug.apk](https://github.com/kkaasan/5GBC_phone_monitor/raw/main/android_app/app/build/outputs/apk/debug/app-debug.apk)
+
+### Installation Steps
+
+1. **Enable Unknown Sources** (if not already enabled)
+   - Go to Settings → Security → Install unknown apps
+   - Select your browser or file manager
+   - Allow installation from this source
+
+2. **Download and Install**
+   - Click the download link above on your Android device
+   - Or transfer the APK file to your phone via USB/cloud storage
+   - Tap the APK file to install
+   - Accept permissions when prompted
+
+3. **Grant Permissions**
+   - Location (Fine & Background) - Required for GPS data
+   - Phone State - Required for network signal data
+   - Battery Optimization Exemption - Recommended for reliable background monitoring
+
+4. **Start Monitoring**
+   - Open the app
+   - Tap "Start Logging"
+   - Grant battery optimization exemption when prompted
+   - The app will log data every 30 seconds to device storage
+
+### Accessing Logs
+
+Logs are saved to: `/storage/emulated/0/Android/data/ee.levira.cbmonitor/files/cb_monitor/`
+
+You can:
+- Copy logs to PC via USB
+- Import into desktop heatmap viewer
+- View with any text editor (JSONL format)
+
+### Features
+
+- ✅ **Background Monitoring**: Continues with screen off via foreground service
+- ✅ **Retry Logic**: Exponential backoff (2-12s timeouts) for reliable cell data
+- ✅ **Stale Detection**: Automatically detects and refreshes stale network data
+- ✅ **Battery Optimized**: Requests Doze mode exemption for uninterrupted monitoring
+- ✅ **Live Display**: Real-time signal metrics and GPS status
+- ✅ **Green Border**: 5dp border indicates active logging
+- ✅ **Compatible Format**: JSONL logs work with desktop heatmap viewer
+
+## 🚀 Quick Start (Desktop Monitoring)
 
 ### Prerequisites
 
@@ -359,13 +426,21 @@ F12 → Network tab → Disable cache checkbox
 ## 📱 Compatible Devices
 
 **Tested:**
-- ✅ Motorola Edge 50 Fusion (primary validated device)
+- ✅ Motorola Edge 50 Fusion (primary validated device - ADB & Native App)
 
-**Requirements:**
+**Requirements for Desktop Monitoring (ADB):**
 - Android 8.0+
 - ADB support
+- USB debugging enabled
 - Location services
 - 5G Broadcast capability (for broadcast testing)
+
+**Requirements for Native Android App:**
+- Android 8.0+ (API 26+)
+- Location permissions (Fine & Background)
+- Phone state permission
+- Battery optimization exemption (recommended)
+- ~7MB storage space
 
 ## 🔬 Technical Details
 
@@ -418,6 +493,7 @@ POST /api/sessions/export         - Export multiple sessions as a single combine
 
 ## 🎉 Features Summary
 
+### Desktop Monitoring
 - ✅ Real-time signal monitoring (RSRP, RSRQ, RSSI, SNR)
 - ✅ GPS location tracking with route visualization
 - ✅ Interactive coverage heatmaps
@@ -432,6 +508,17 @@ POST /api/sessions/export         - Export multiple sessions as a single combine
 - ✅ Zero external Python dependencies
 - ✅ Works offline (except OpenStreetMap tiles)
 
+### Android App
+- ✅ Standalone operation (no PC required)
+- ✅ Background monitoring with screen off
+- ✅ Retry mechanism with exponential backoff
+- ✅ Stale data detection and automatic refresh
+- ✅ Battery optimization exemption support
+- ✅ Foreground service for reliable operation
+- ✅ Live signal and GPS display
+- ✅ Compatible JSONL log format
+- ✅ 30-second capture interval
+
 ## 🚧 Known Limitations
 
 - SNR data not always available on all devices
@@ -442,12 +529,17 @@ POST /api/sessions/export         - Export multiple sessions as a single combine
 ## 📈 Roadmap
 
 Future enhancements:
+- [x] Native Android app for standalone monitoring (✅ Completed v1.2)
+- [x] Background monitoring with screen off (✅ Completed v1.2)
+- [x] Retry logic for reliable cell data collection (✅ Completed v1.2)
 - [ ] Multi-device monitoring support
 - [ ] Advanced filtering (by PCI, Cell ID, signal threshold)
 - [ ] Session comparison view
 - [ ] KML/KMZ export for Google Earth
 - [ ] Customizable capture intervals via web UI
 - [ ] Signal quality alerts/notifications
+- [ ] Android app: Auto-upload logs to server
+- [ ] Android app: Real-time map view
 
 ## 🤝 Contributing
 
@@ -475,9 +567,16 @@ MIT License - Use freely for testing and analysis purposes.
 
 ---
 
-**Version**: 1.1
+**Version**: 1.2
 **Created**: December 2025
 **Purpose**: Professional 5G Broadcast signal monitoring and coverage analysis
-**Tech Stack**: Python 3, Leaflet.js, Android ADB, JSONL storage
+**Tech Stack**: Python 3, Leaflet.js, Android ADB, Kotlin/Android, JSONL storage
+
+**What's New in v1.2:**
+- 📱 Native Android app for standalone monitoring
+- 🔋 Background monitoring with battery optimization
+- 🔄 Retry mechanism with exponential backoff for reliable cell data
+- 📊 Stale data detection and automatic refresh
+- 🟢 Visual logging indicator (5dp green border)
 
 Developed by **Kristo Kaasan** in cooperation with **Claude Code** and **Codex**.
