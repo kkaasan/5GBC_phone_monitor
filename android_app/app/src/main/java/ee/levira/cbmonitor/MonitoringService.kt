@@ -51,6 +51,11 @@ class MonitoringService : Service() {
     private var locationListener: LocationListener? = null
     private var locationCallbackRegistered = false
 
+    // Track stale network data
+    private var lastCellDataHash: Int = 0
+    private var lastCellDataChangeTime: Long = System.currentTimeMillis()
+    private var cellDataStaleCount: Int = 0
+
     override fun onCreate() {
         super.onCreate()
         startForeground(1, createNotification())
@@ -210,7 +215,12 @@ class MonitoringService : Service() {
             }
 
             val telephony = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-            val allCells: List<CellInfo>? = fetchCellInfo(telephony)
+
+            // Check if data is stale and trigger refresh if needed
+            val staleDurationMs = System.currentTimeMillis() - lastCellDataChangeTime
+            val isStale = staleDurationMs > 60_000L // Data unchanged for >60s
+
+            val allCells: List<CellInfo>? = fetchCellInfo(telephony, forceRefresh = isStale)
 
             // Prefer 5G NR if available, otherwise LTE. Fall back to any registered, then any cell.
             val registered = allCells?.filter { it.isRegistered } ?: emptyList()
@@ -279,6 +289,22 @@ class MonitoringService : Service() {
                     }
                 }
             }
+
+            // Track if cell data has changed
+            val cellDataHash = generateCellDataHash(json)
+            if (cellDataHash != lastCellDataHash && cellDataHash != 0) {
+                lastCellDataHash = cellDataHash
+                lastCellDataChangeTime = System.currentTimeMillis()
+                cellDataStaleCount = 0
+            } else if (cellDataHash != 0) {
+                cellDataStaleCount++
+                if (cellDataStaleCount >= 2) { // Stale for 2+ cycles (60s+)
+                    val existingNote = json.optString("note", "")
+                    val staleNote = "data_stale_${staleDurationMs / 1000}s"
+                    json.put("note", if (existingNote.isEmpty()) staleNote else "$existingNote,$staleNote")
+                }
+            }
+
         } catch (_: SecurityException) {
             json.put("error", "missing_permission")
         } catch (e: Exception) {
@@ -287,7 +313,20 @@ class MonitoringService : Service() {
         return json
     }
 
-    private fun fetchCellInfo(telephony: TelephonyManager): List<CellInfo>? {
+    private fun generateCellDataHash(cellInfo: JSONObject): Int {
+        // Create hash from key cell identifiers to detect changes
+        return try {
+            val tac = cellInfo.optString("tac", "")
+            val earfcn = cellInfo.optString("earfcn", "")
+            val ci = cellInfo.optString("ci", "")
+            val pci = cellInfo.optString("pci", "")
+            "$tac:$earfcn:$ci:$pci".hashCode()
+        } catch (_: Exception) {
+            0
+        }
+    }
+
+    private fun fetchCellInfo(telephony: TelephonyManager, forceRefresh: Boolean = false): List<CellInfo>? {
         var cells: List<CellInfo>? = try {
             telephony.allCellInfo
         } catch (e: SecurityException) {
@@ -295,31 +334,62 @@ class MonitoringService : Service() {
         } catch (_: Exception) {
             null
         }
-        if (!cells.isNullOrEmpty()) return cells
 
+        // If we got valid data and not forced to refresh, return it
+        if (!cells.isNullOrEmpty() && !forceRefresh) return cells
+
+        // Use requestCellInfoUpdate for fresh data (Android Q+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val latch = CountDownLatch(1)
+            // Try up to 3 times with increasing timeouts (exponential backoff)
+            val retryAttempts = if (forceRefresh) 3 else 2
+            val baseTimeout = if (forceRefresh) 3000L else 2000L
             var refreshed: List<CellInfo>? = null
-            try {
-                telephony.requestCellInfoUpdate(
-                    ContextCompat.getMainExecutor(this),
-                    object : TelephonyManager.CellInfoCallback() {
-                        override fun onCellInfo(cellInfo: MutableList<CellInfo>) {
-                            refreshed = cellInfo
-                            latch.countDown()
+
+            for (attempt in 0 until retryAttempts) {
+                val latch = CountDownLatch(1)
+                try {
+                    telephony.requestCellInfoUpdate(
+                        ContextCompat.getMainExecutor(this),
+                        object : TelephonyManager.CellInfoCallback() {
+                            override fun onCellInfo(cellInfo: MutableList<CellInfo>) {
+                                refreshed = cellInfo
+                                latch.countDown()
+                            }
+
+                            override fun onError(errorCode: Int, detail: Throwable?) {
+                                // Callback failed, countdown to proceed with retry
+                                latch.countDown()
+                            }
                         }
+                    )
+
+                    // Wait with exponentially increasing timeout
+                    val timeout = baseTimeout * (1L shl attempt) // 2s, 4s, 8s OR 3s, 6s, 12s
+                    val success = latch.await(timeout, TimeUnit.MILLISECONDS)
+
+                    if (!refreshed.isNullOrEmpty()) {
+                        return refreshed
                     }
-                )
-                latch.await(1500L, TimeUnit.MILLISECONDS)
-            } catch (e: SecurityException) {
-                throw e
-            } catch (_: Exception) {
-                // ignore and fall back
+
+                    // If we got empty on last attempt, break
+                    if (attempt == retryAttempts - 1) break
+
+                    // Small delay before retry (only if not last attempt)
+                    Thread.sleep(500L * (attempt + 1))
+
+                } catch (e: SecurityException) {
+                    throw e
+                } catch (_: Exception) {
+                    // Continue to next retry
+                }
             }
+
+            // Use whatever we got from allCellInfo if callback failed
             if (!refreshed.isNullOrEmpty()) {
                 cells = refreshed
             }
         }
+
         return cells
     }
 

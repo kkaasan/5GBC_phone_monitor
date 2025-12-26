@@ -3,10 +3,13 @@ package ee.levira.cbmonitor
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
+import android.provider.Settings
 import android.app.ActivityManager
 import android.os.SystemClock
 import android.graphics.Color
@@ -171,6 +174,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun startLogging() {
         requestPermissionsIfNeeded {
+            // Request battery optimization exemption for reliable background monitoring
+            requestBatteryOptimizationExemption()
+
             val newSessionId = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             ContextCompat.startForegroundService(
                 this,
@@ -183,6 +189,30 @@ class MainActivity : AppCompatActivity() {
             updateButtonLabel()
             updateLoggingBorder()
             startLogUpdates()
+        }
+    }
+
+    private fun requestBatteryOptimizationExemption() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val pm = getSystemService(POWER_SERVICE) as? PowerManager ?: return
+            val packageName = packageName
+
+            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                try {
+                    // Opens system dialog to request battery optimization exemption
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                } catch (_: Exception) {
+                    // If direct request fails, open battery optimization settings
+                    try {
+                        startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                    } catch (_: Exception) {
+                        // Ignore if unable to open settings
+                    }
+                }
+            }
         }
     }
 
