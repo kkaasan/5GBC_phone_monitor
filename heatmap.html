@@ -345,6 +345,13 @@
             maxZoom: 19
         }).addTo(map);
 
+        // Add zoom event listener to refresh heatmap dynamically
+        map.on('zoomend', function() {
+            if (filteredData.length > 0 && showHeatmap) {
+                updateVisualization();
+            }
+        });
+
         // Data and layers
         let currentData = [];
         let filteredData = [];
