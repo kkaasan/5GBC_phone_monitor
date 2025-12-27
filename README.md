@@ -427,6 +427,7 @@ F12 → Network tab → Disable cache checkbox
 
 **Tested:**
 - ✅ Motorola Edge 50 Fusion (primary validated device - ADB & Native App)
+- ✅ Google Pixel 3 (ADB & Native App)
 
 **Requirements for Desktop Monitoring (ADB):**
 - Android 8.0+
