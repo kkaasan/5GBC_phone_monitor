@@ -1,0 +1,46 @@
+--------- beginning of main
+12-10 11:19:31.265 D/CellBroadcastAlertAudio(20431): TTS completed. Stop CellBroadcastAlertAudio service
+12-10 11:19:31.265 D/CellBroadcastAlertAudio(20431): stopAlertAudioService, current state is 3
+12-10 11:19:31.265 D/CellBroadcastAlertAudio(20431): Set state from 3 to 4
+12-10 11:19:31.266 D/CellBroadcastAlertAudio(20431): Set state from 4 to 4
+12-10 11:19:31.266 D/CellBroadcastAlertAudio(20431): onDestroy
+12-10 11:19:31.266 D/CellBroadcastAlertAudio(20431): Successful to stop AlertAudioService[1]
+12-10 11:19:31.266 D/CellBroadcastAlertAudio(20431): stop()
+12-10 11:19:31.271 I/TextToSpeech(20431): Disconnected from TTS engine
+12-10 11:20:29.997 D/CellBroadcastContentProvider(20431): database changed: notifying observers...
+
+----- NETWORK SNAPSHOT 2025-12-10 11:25:10 -----
+Unknown command: cell-info
+Location: Latitude=59.435424, Longitude=24.754154
+
+----- NETWORK SNAPSHOT 2025-12-10 11:25:40 -----
+Unknown command: cell-info
+Location: Latitude=59.434378, Longitude=24.751333
+12-10 11:42:25.687 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 11:42:25.704 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 11:42:25.704 D/CellBroadcastReceiver(20431): networkOperator: 
+12-10 11:43:15.508 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 11:43:15.513 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 11:43:15.513 D/CellBroadcastReceiver(20431): networkOperator: 
+12-10 11:48:45.395 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 11:48:45.399 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 11:48:45.399 D/CellBroadcastReceiver(20431): networkOperator: 
+12-10 11:48:49.504 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 11:48:49.510 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 11:48:49.510 D/CellBroadcastReceiver(20431): networkOperator: 
+12-10 12:10:42.315 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 12:10:42.322 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 12:10:42.322 D/CellBroadcastReceiver(20431): networkOperator: 
+12-10 12:11:01.742 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 12:11:01.747 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 12:11:01.748 D/CellBroadcastReceiver(20431): networkOperator: 
+12-10 12:21:34.114 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 12:21:34.119 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 12:21:34.119 D/CellBroadcastReceiver(20431): networkOperator: 
+12-10 12:22:09.904 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 12:22:09.907 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 12:22:09.907 D/CellBroadcastReceiver(20431): networkOperator: 
+12-10 12:33:43.546 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 12:33:43.554 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 12:33:43.554 D/CellBroadcastReceiver(20431): networkOperator: 
+12-10 12:33:53.073 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.provider.action.SMS_EMERGENCY_CB_RECEIVED flg=0x10000010 pkg=com.google.android.cellbroadcastreceiver cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }

@@ -2,10 +2,45 @@
 
 Professional 5G Broadcast signal analysis and coverage mapping tool for real-time RSRP/RSRQ monitoring with GPS correlation and modulation threshold analysis.
 
-![Version](https://img.shields.io/badge/version-1.2-blue)
+![Version](https://img.shields.io/badge/version-1.3-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
 ![Android](https://img.shields.io/badge/android-8.0+-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
+
+## 📸 Screenshots
+
+### Main Interface
+![Main Interface](screenshots/main-interface.png)
+*Central hub with monitoring control, dashboard access, heatmap viewer, and emergency warnings*
+
+### Live Dashboard
+![Live Dashboard](screenshots/live-dashboard.png)
+*Real-time signal gauges (RSSI, RSRP, RSRQ, SNR), GPS tracking, and session statistics*
+
+### Coverage Heatmap
+![Coverage Heatmap](screenshots/coverage-heatmap.png)
+*Signal strength visualization with 16-QAM/QPSK modulation thresholds and transmitter filtering*
+
+### Emergency Warnings
+<table>
+<tr>
+<td width="50%">
+
+![CB Messages List](screenshots/cb-messages-list.png)
+*Cell Broadcast message list with priority indicators*
+
+</td>
+<td width="50%">
+
+![CB Message Detail](screenshots/cb-message-detail.png)
+*Detailed CB message view with CMAS info, GPS location, and geo polygon*
+
+</td>
+</tr>
+</table>
+
+![CB Messages Map](screenshots/cb-messages-map.png)
+*Emergency warnings mapped with geographical coverage areas*
 
 ## 🌟 Features
 
@@ -18,8 +53,9 @@ Professional 5G Broadcast signal analysis and coverage mapping tool for real-tim
 - **Web Control Interface** - Start/stop monitoring, device status, and session browser
 - **CSV Export** - Full parameter export for post-processing and reporting
 - **Modulation Analysis** - Signal quality classification based on 3GPP standards
+- **🚨 Emergency Warnings (NEW!)** - Cell Broadcast message monitoring and analysis
 
-### 📱 Native Android App (NEW!)
+### 📱 Native Android App
 - **Standalone Monitoring** - No PC or ADB required, runs independently on your phone
 - **Background Logging** - Continues monitoring with screen off using foreground service
 - **Robust Network Collection** - Retry mechanism with exponential backoff for reliable data
@@ -27,32 +63,58 @@ Professional 5G Broadcast signal analysis and coverage mapping tool for real-tim
 - **Live Cell View** - Real-time display of signal metrics and GPS status
 - **Automatic File Export** - Saves logs to device storage in JSONL format
 - **Session Management** - Compatible with desktop heatmap viewer
+- **🚨 CB Logging (NEW in v1.3!)** - Automatic Cell Broadcast message capture on device
+  - Logcat-based CB monitoring (requires READ_LOGS permission via ADB)
+  - BroadcastReceiver for direct CB message capture
+  - GPS-correlated emergency alert logging
+  - Import to web interface via ADB
+
+### 🚨 Cell Broadcast Emergency Warnings (NEW in v1.3!)
+- **Desktop CB Monitoring** - Automatic capture of Cell Broadcast messages via ADB logcat
+- **Android App CB Logging** - Direct on-device CB capture (requires READ_LOGS permission)
+  - Enable via: `adb shell pm grant ee.levira.cbmonitor android.permission.READ_LOGS`
+  - Import to web via "Import from Phone" button
+- **Complete Metadata** - Serial number, service category, priority, language, CMAS info
+- **Geographical Areas** - Full polygon coordinates for targeted alert zones
+- **GPS Correlation** - Device location at time of message reception
+- **Message History** - Browse all received CB messages with timestamps
+- **Import Tool** - Batch import from existing CB log dump files or Android app
+- **Web Interface** - Dedicated emergency warnings viewer with expandable details
+- **Multi-language Support** - Displays messages in Estonian, English, Russian
 
 ## 📁 Project Structure
 
 ```
 cb_monitor/
-├── cb_monitor.py          # Main monitoring backend (ADB integration)
-├── api_server.py          # Web API server with control endpoints
-├── start.sh               # Quick-start script (starts web API server)
-├── index.html             # Main control interface
-├── dashboard.html         # Live monitoring dashboard
-├── heatmap.html           # Coverage heatmap viewer
-├── sessions.html          # Session browser and export
-├── settings.html          # Transmitter configuration (tower locations & PCI)
-├── android_app/           # Native Android app (standalone monitoring)
+├── cb_monitor.py               # Main monitoring backend (ADB + CB logcat)
+├── api_server.py               # Web API server with control endpoints
+├── import_cb_logs.py           # Cell Broadcast log importer
+├── start.sh                    # Quick-start script (starts web API server)
+├── index.html                  # Main control interface
+├── dashboard.html              # Live monitoring dashboard
+├── heatmap.html                # Coverage heatmap viewer
+├── emergency_warnings.html     # Cell Broadcast message viewer (NEW!)
+├── sessions.html               # Session browser and export
+├── settings.html               # Transmitter configuration (tower locations & PCI)
+├── android_app/                # Native Android app (standalone monitoring)
 │   ├── app/src/main/java/ee/levira/cbmonitor/
 │   │   ├── MainActivity.kt          # App UI and controls
-│   │   └── MonitoringService.kt     # Background monitoring service
-│   └── app/build/outputs/apk/debug/
-│       └── app-debug.apk            # Pre-built APK for installation
-├── data/                  # Generated data files
-│   ├── status.json       # Current live status (with session_id)
-│   └── data_index.json   # Session index and metadata
-├── logs/                  # Session log files (.jsonl)
-├── static/                # Additional static assets (if any)
-├── favicon.svg            # App icon
-└── test_phone.py         # Device testing utilities
+│   │   ├── MonitoringService.kt     # Background monitoring service
+│   │   ├── CellBroadcastReceiver.kt # CB message receiver (NEW!)
+│   │   └── LogcatCBLogger.kt        # Logcat-based CB capture (NEW!)
+│   ├── app/build/outputs/apk/debug/
+│   │   └── app-debug.apk            # Pre-built APK for installation
+│   └── CB_LOGGING_SETUP.md     # CB logging setup guide (NEW!)
+├── data/                       # Generated data files
+│   ├── status.json            # Current live status (with session_id)
+│   ├── data_index.json        # Session index and metadata
+│   └── cb_index.json          # Cell Broadcast message index (NEW!)
+├── logs/                       # Session log files (.jsonl)
+├── cb_logs/                    # Cell Broadcast messages (.json) (NEW!)
+├── cb_dumps/                   # CB log dump files for import (NEW!)
+├── static/                     # Additional static assets (if any)
+├── favicon.svg                 # App icon
+└── test_phone.py              # Device testing utilities
 ```
 
 ## 📲 Android App Installation
@@ -154,6 +216,7 @@ Open your browser and navigate to:
 - **Main Menu**: http://localhost:8888/index.html
 - **Live Dashboard**: http://localhost:8888/dashboard.html
 - **Coverage Heatmap**: http://localhost:8888/heatmap.html
+- **🚨 Emergency Warnings**: http://localhost:8888/emergency_warnings.html
 - **Sessions & Export**: http://localhost:8888/sessions.html
 
 ## 📊 Web Interface
@@ -237,6 +300,67 @@ The dashboard loads all historical data from the current session on page load, s
 - **Bulk operations** (via the API server):
   - Multi-select sessions and export them combined via `POST /api/sessions/export`
   - Multi-select sessions and delete them via `POST /api/sessions/delete`
+
+### 6. Emergency Warnings (`emergency_warnings.html`) 🆕
+
+**Purpose:**
+- View and analyze all Cell Broadcast emergency messages received from the network
+- Full metadata display with geographical polygon areas
+- GPS correlation showing device location at time of reception
+
+**Features:**
+- 📋 **Message List**: All CB messages sorted by date/time with priority indicators
+- 🔴 **Priority Color Coding**: High (red), Medium (yellow), Low (blue)
+- 📝 **Message Body**: Full multi-line message text in all languages
+- 📊 **Complete Metadata**:
+  - Serial number, service category, language
+  - Priority level, geographical scope
+  - CMAS information (message class, severity, urgency, certainty)
+  - Maximum waiting time, slot index
+  - Received time (milliseconds)
+- 🗺️ **Geographical Areas**: Full polygon coordinates for alert zones
+- 📍 **GPS Location**: Device coordinates when message was received (with Google Maps link)
+- 🔽 **Expandable Details**: Click any message to view all metadata
+- 🔄 **Auto-refresh**: Updates every 30 seconds
+- 📥 **Import Support**: Compatible with imported CB log dumps
+
+**Priority Levels Explained:**
+
+Cell Broadcast messages include a priority field that indicates the urgency/importance as set by the broadcaster (government, emergency services):
+
+- **Priority 3 = HIGH** 🔴 (Red)
+  - Critical emergencies requiring immediate action
+  - Immediate danger to life or property
+  - Examples: Severe weather warnings, evacuation orders, imminent threats
+  - Display: Red background tint, red border, red markers on map
+
+- **Priority 2 = MEDIUM** 🟨 (Yellow)
+  - Important alerts requiring attention
+  - Examples: Weather advisories, local emergencies, test alerts
+  - Display: Yellow background tint, yellow border, yellow markers on map
+
+- **Priority 1 = LOW** 🟦 (Blue)
+  - General information and non-urgent notifications
+  - Examples: Information broadcasts, routine announcements
+  - Display: Blue background tint, blue border, blue markers on map
+
+**During Monitoring:**
+- CB messages are automatically captured via ADB logcat monitoring
+- Messages appear in real-time on the Emergency Warnings page
+- GPS location is correlated at time of reception
+- All metadata is preserved in JSON format
+
+**Import Historical Messages:**
+```bash
+# Place your CB log dump files in cb_dumps/
+cp /path/to/cb_log_*.txt cb_dumps/
+
+# Run the import script
+python3 import_cb_logs.py
+
+# View imported messages at:
+# http://localhost:8888/emergency_warnings.html
+```
 
 ## 📝 Command Line Usage
 
@@ -490,6 +614,11 @@ POST /api/transmitters/save       - Save transmitter configuration to data/trans
 
 POST /api/sessions/delete         - Delete a session (log file + index entry)
 POST /api/sessions/export         - Export multiple sessions as a single combined CSV
+POST /api/sessions/import_phone   - Import sessions from Android app via ADB
+
+GET  /api/cb/list                 - Get list of all Cell Broadcast messages (NEW!)
+GET  /api/cb/message/{msg_id}     - Get full details of specific CB message (NEW!)
+POST /api/cb/import_phone         - Import CB logs from Android app via ADB (NEW!)
 ```
 
 ## 🎉 Features Summary
@@ -509,6 +638,16 @@ POST /api/sessions/export         - Export multiple sessions as a single combine
 - ✅ Zero external Python dependencies
 - ✅ Works offline (except OpenStreetMap tiles)
 
+### Emergency Warnings (NEW!)
+- ✅ Real-time Cell Broadcast message capture
+- ✅ Complete CB metadata (priority, CMAS info, geo polygons)
+- ✅ GPS-correlated device location
+- ✅ Multi-language message display
+- ✅ Priority-based color coding
+- ✅ Historical message browser
+- ✅ Import tool for existing CB log dumps
+- ✅ Google Maps integration for location viewing
+
 ### Android App
 - ✅ Standalone operation (no PC required)
 - ✅ Background monitoring with screen off
@@ -519,6 +658,10 @@ POST /api/sessions/export         - Export multiple sessions as a single combine
 - ✅ Live signal and GPS display
 - ✅ Compatible JSONL log format
 - ✅ 30-second capture interval
+- ✅ **Cell Broadcast logging** (v1.3 NEW!)
+  - Logcat-based CB message capture
+  - GPS-correlated emergency alerts
+  - Import to web via ADB
 
 ## 🚧 Known Limitations
 
@@ -533,6 +676,8 @@ Future enhancements:
 - [x] Native Android app for standalone monitoring (✅ Completed v1.2)
 - [x] Background monitoring with screen off (✅ Completed v1.2)
 - [x] Retry logic for reliable cell data collection (✅ Completed v1.2)
+- [x] Cell Broadcast emergency message monitoring (✅ Completed v1.3)
+- [x] CB message import tool (✅ Completed v1.3)
 - [ ] Multi-device monitoring support
 - [ ] Advanced filtering (by PCI, Cell ID, signal threshold)
 - [ ] Session comparison view
@@ -541,6 +686,8 @@ Future enhancements:
 - [ ] Signal quality alerts/notifications
 - [ ] Android app: Auto-upload logs to server
 - [ ] Android app: Real-time map view
+- [ ] CB message export to CSV/JSON
+- [ ] CB message filtering by priority/category
 
 ## 🤝 Contributing
 
@@ -568,16 +715,31 @@ MIT License - Use freely for testing and analysis purposes.
 
 ---
 
-**Version**: 1.2
+**Version**: 1.3
 **Created**: December 2025
-**Purpose**: Professional 5G Broadcast signal monitoring and coverage analysis
+**Purpose**: Professional 5G Broadcast signal monitoring, coverage analysis, and emergency alert system testing
 **Tech Stack**: Python 3, Leaflet.js, Android ADB, Kotlin/Android, JSONL storage
 
-**What's New in v1.2:**
+**What's New in v1.3:**
+- 🚨 **Cell Broadcast Emergency Warnings** - Real-time CB message monitoring via ADB logcat (desktop) and on-device capture (Android app)
+- 📱 **Android App CB Logging** - Native on-device CB capture using LogcatCBLogger (requires READ_LOGS permission)
+  - Enable via: `adb shell pm grant ee.levira.cbmonitor android.permission.READ_LOGS`
+  - Automatic CB message capture during network logging sessions
+  - Import to web interface via "Import from Phone" button
+- 📋 **Complete CB Metadata** - Serial number, priority, CMAS info, geo polygons, language
+- 📍 **GPS Correlation** - Device location captured at time of message reception
+- 🌐 **Web Viewer** - Dedicated emergency warnings page with expandable message details
+- 📥 **Import Tool** - Batch import CB messages from existing log dump files or Android app
+- 🗺️ **Geographical Areas** - Full polygon coordinate display for targeted alert zones
+- 🔄 **Auto-refresh** - Real-time updates every 30 seconds
+- 🎨 **Priority Color Coding** - Visual indicators for message urgency (high/medium/low)
+- 📖 **Setup Guide** - Comprehensive CB logging documentation in `android_app/CB_LOGGING_SETUP.md`
+
+**Previous Updates (v1.2):**
 - 📱 Native Android app for standalone monitoring
 - 🔋 Background monitoring with battery optimization
 - 🔄 Retry mechanism with exponential backoff for reliable cell data
 - 📊 Stale data detection and automatic refresh
 - 🟢 Visual logging indicator (5dp green border)
 
-Developed by **Kristo Kaasan** in cooperation with **Claude Code** and **Codex**.
+Developed by **Kristo Kaasan** in cooperation with **Claude Code**.

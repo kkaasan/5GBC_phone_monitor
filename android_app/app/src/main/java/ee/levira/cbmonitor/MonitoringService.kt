@@ -56,12 +56,19 @@ class MonitoringService : Service() {
     private var lastCellDataChangeTime: Long = System.currentTimeMillis()
     private var cellDataStaleCount: Int = 0
 
+    // CB logging
+    private var cbLogger: LogcatCBLogger? = null
+
     override fun onCreate() {
         super.onCreate()
         startForeground(1, createNotification())
         acquireWakeLock()
         locationManager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
         ensureLocationUpdates()
+
+        // Start CB logging
+        cbLogger = LogcatCBLogger(this)
+        cbLogger?.startLogging()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -83,6 +90,10 @@ class MonitoringService : Service() {
         releaseWakeLock()
         stopLocationUpdates()
         updateDataIndex()
+
+        // Stop CB logging
+        cbLogger?.stopLogging()
+        cbLogger = null
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -101,7 +112,7 @@ class MonitoringService : Service() {
 
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("CB Monitor")
-            .setContentText("Collecting cell & GPS data every 30s")
+            .setContentText("Collecting cell, GPS & CB data every 30s")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
             .build()

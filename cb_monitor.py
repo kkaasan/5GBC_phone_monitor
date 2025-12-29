@@ -21,9 +21,11 @@ import socketserver
 # Configuration
 DATA_DIR = Path(__file__).parent / "data"
 LOGS_DIR = Path(__file__).parent / "logs"
+CB_LOGS_DIR = Path(__file__).parent / "cb_logs"
 STATIC_DIR = Path(__file__).parent / "static"
 STATUS_FILE = DATA_DIR / "status.json"
 DATA_INDEX_FILE = DATA_DIR / "data_index.json"
+CB_INDEX_FILE = DATA_DIR / "cb_index.json"
 SNAPSHOT_INTERVAL = 30  # seconds
 
 # ADB path - try common locations
@@ -36,6 +38,7 @@ if not os.path.exists(ADB_PATH):
 # Ensure directories exist
 DATA_DIR.mkdir(exist_ok=True)
 LOGS_DIR.mkdir(exist_ok=True)
+CB_LOGS_DIR.mkdir(exist_ok=True)
 STATIC_DIR.mkdir(exist_ok=True)
 
 class CBMonitor:
@@ -44,6 +47,8 @@ class CBMonitor:
         self.stop_event = Event()
         self.current_session = None
         self.data_points = []
+        self.cb_messages = []
+        self.logcat_process = None
 
     def check_adb(self):
         """Check if ADB is available"""
@@ -260,6 +265,237 @@ class CBMonitor:
             print(f"   ⚠️  Error getting location: {e}")
             return {'latitude': None, 'longitude': None}
 
+    def parse_cb_message(self, log_lines):
+        """Parse Cell Broadcast message from logcat lines"""
+        try:
+            cb_data = {}
+            message_lines = []
+
+            for line in log_lines:
+                # Extract SmsCbMessage details
+                if 'SmsCbMessage{' in line:
+                    # Parse all the fields
+                    match = re.search(r'geographicalScope=(\d+)', line)
+                    if match:
+                        cb_data['geographicalScope'] = int(match.group(1))
+
+                    match = re.search(r'serialNumber=(\d+)', line)
+                    if match:
+                        cb_data['serialNumber'] = int(match.group(1))
+
+                    match = re.search(r'location=\[([^\]]+)\]', line)
+                    if match:
+                        cb_data['location'] = match.group(1)
+
+                    match = re.search(r'serviceCategory=(\d+)', line)
+                    if match:
+                        cb_data['serviceCategory'] = int(match.group(1))
+
+                    match = re.search(r'language=(\w+)', line)
+                    if match:
+                        cb_data['language'] = match.group(1)
+
+                    match = re.search(r'priority=(\d+)', line)
+                    if match:
+                        cb_data['priority'] = int(match.group(1))
+
+                    match = re.search(r'received time=(\d+)', line)
+                    if match:
+                        cb_data['receivedTime'] = int(match.group(1))
+
+                    match = re.search(r'slotIndex = (\d+)', line)
+                    if match:
+                        cb_data['slotIndex'] = int(match.group(1))
+
+                    match = re.search(r'geo=([^}]+)', line)
+                    if match:
+                        cb_data['geo'] = match.group(1).strip()
+
+                    # Extract SmsCbCmasInfo
+                    match = re.search(r'SmsCbCmasInfo\{messageClass=(-?\d+), category=(-?\d+), responseType=(-?\d+), severity=(-?\d+), urgency=(-?\d+), certainty=(-?\d+)\}', line)
+                    if match:
+                        cb_data['cmasInfo'] = {
+                            'messageClass': int(match.group(1)),
+                            'category': int(match.group(2)),
+                            'responseType': int(match.group(3)),
+                            'severity': int(match.group(4)),
+                            'urgency': int(match.group(5)),
+                            'certainty': int(match.group(6))
+                        }
+
+                    match = re.search(r'maximumWaitingTime=(\d+)', line)
+                    if match:
+                        cb_data['maximumWaitingTime'] = int(match.group(1))
+
+                    # Extract body (it's after "body=" and can span multiple lines)
+                    body_match = re.search(r'body=(.+)', line)
+                    if body_match:
+                        body_text = body_match.group(1)
+                        # Remove trailing metadata if present
+                        if ', priority=' in body_text:
+                            body_text = body_text.split(', priority=')[0]
+                        message_lines.append(body_text)
+
+                # Check for message body continuation (lines that are just message content)
+                elif 'GsmCellBroadcastHandler' in line and any(x in line for x in ['D/GsmCellBroadcastHandler']) and not any(x in line for x in ['SmsCbMessage', 'Dispatching', 'Found', 'compare', 'Duplicate', 'Not a duplicate']):
+                    # Extract just the message part after the log prefix
+                    parts = line.split('GsmCellBroadcastHandler(')
+                    if len(parts) > 1:
+                        message_part = parts[1].split('): ', 1)
+                        if len(message_part) > 1:
+                            content = message_part[1].strip()
+                            if content and content not in message_lines:
+                                message_lines.append(content)
+
+            # Join all message lines
+            if message_lines:
+                cb_data['body'] = '\n'.join(message_lines).strip()
+
+            if cb_data and 'body' in cb_data:
+                return cb_data
+            return None
+
+        except Exception as e:
+            print(f"   ⚠️  Error parsing CB message: {e}")
+            return None
+
+    def monitor_logcat(self):
+        """Monitor logcat for Cell Broadcast messages"""
+        try:
+            # Clear logcat first
+            subprocess.run([ADB_PATH, 'logcat', '-c'], timeout=5)
+
+            # Start logcat monitoring
+            self.logcat_process = subprocess.Popen(
+                [ADB_PATH, 'logcat', '-v', 'time', 'GsmCellBroadcastHandler:D', '*:S'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1
+            )
+
+            print("   📻 CB logcat monitoring started")
+
+            current_message_lines = []
+            in_message = False
+
+            while not self.stop_event.is_set() and self.running:
+                line = self.logcat_process.stdout.readline()
+                if not line:
+                    break
+
+                # Detect start of new CB message
+                if 'Not a duplicate message' in line or 'Duplicate message detected' in line:
+                    # Save previous message if exists
+                    if current_message_lines and in_message:
+                        cb_msg = self.parse_cb_message(current_message_lines)
+                        if cb_msg:
+                            self.save_cb_message(cb_msg)
+
+                    # Start new message
+                    current_message_lines = [line]
+                    in_message = True
+
+                elif in_message:
+                    current_message_lines.append(line)
+
+                    # Check if message is complete
+                    if 'release wakelock' in line or 'call cancel' in line or 'broadcast complete' in line:
+                        cb_msg = self.parse_cb_message(current_message_lines)
+                        if cb_msg:
+                            self.save_cb_message(cb_msg)
+                        current_message_lines = []
+                        in_message = False
+
+        except Exception as e:
+            print(f"   ⚠️  Error in logcat monitoring: {e}")
+        finally:
+            if self.logcat_process:
+                self.logcat_process.terminate()
+                self.logcat_process = None
+
+    def save_cb_message(self, cb_data):
+        """Save CB message to file and index"""
+        try:
+            timestamp = datetime.now()
+
+            # Get current location to associate with message
+            location = self.get_location()
+
+            # Create full CB message record
+            cb_record = {
+                'timestamp': timestamp.isoformat(),
+                'receivedTime': cb_data.get('receivedTime'),
+                'serialNumber': cb_data.get('serialNumber'),
+                'serviceCategory': cb_data.get('serviceCategory'),
+                'body': cb_data.get('body', ''),
+                'language': cb_data.get('language'),
+                'priority': cb_data.get('priority'),
+                'geographicalScope': cb_data.get('geographicalScope'),
+                'location': cb_data.get('location'),
+                'geo': cb_data.get('geo'),
+                'cmasInfo': cb_data.get('cmasInfo'),
+                'maximumWaitingTime': cb_data.get('maximumWaitingTime'),
+                'slotIndex': cb_data.get('slotIndex'),
+                'coordinates': location
+            }
+
+            # Generate unique ID for this message
+            msg_id = f"{timestamp.strftime('%Y%m%d_%H%M%S')}_{cb_data.get('serialNumber', 0)}"
+
+            # Save to file
+            cb_file = CB_LOGS_DIR / f"{msg_id}.json"
+            with open(cb_file, 'w') as f:
+                json.dump(cb_record, f, indent=2)
+
+            # Update CB index
+            self.update_cb_index(msg_id, cb_record)
+
+            # Extract title from body (first line)
+            title = cb_record['body'].split('\n')[0][:100] if cb_record['body'] else 'CB Message'
+
+            print(f"\n🚨 CB Message Received: {title}")
+            print(f"   ID: {msg_id}")
+            print(f"   Priority: {cb_record['priority']}")
+
+            self.cb_messages.append(cb_record)
+
+        except Exception as e:
+            print(f"   ⚠️  Error saving CB message: {e}")
+
+    def update_cb_index(self, msg_id, cb_record):
+        """Update CB message index"""
+        try:
+            if CB_INDEX_FILE.exists():
+                with open(CB_INDEX_FILE, 'r') as f:
+                    index = json.load(f)
+            else:
+                index = {'messages': []}
+
+            # Extract heading from body
+            heading = cb_record['body'].split('\n')[0][:100] if cb_record['body'] else 'CB Message'
+
+            # Create index entry
+            index_entry = {
+                'id': msg_id,
+                'timestamp': cb_record['timestamp'],
+                'heading': heading,
+                'priority': cb_record.get('priority'),
+                'language': cb_record.get('language'),
+                'serviceCategory': cb_record.get('serviceCategory')
+            }
+
+            # Check if already exists (avoid duplicates)
+            existing = [m for m in index['messages'] if m['id'] == msg_id]
+            if not existing:
+                index['messages'].insert(0, index_entry)  # Add to beginning
+
+                with open(CB_INDEX_FILE, 'w') as f:
+                    json.dump(index, f, indent=2)
+
+        except Exception as e:
+            print(f"   ⚠️  Error updating CB index: {e}")
+
     def capture_snapshot(self):
         """Capture a single network snapshot"""
         timestamp = datetime.now()
@@ -439,8 +675,17 @@ class CBMonitor:
         monitor_thread = Thread(target=self.monitoring_loop)
         monitor_thread.start()
 
+        # Start CB logcat monitoring thread
+        logcat_thread = Thread(target=self.monitor_logcat, daemon=True)
+        logcat_thread.start()
+
         # Wait for completion
         monitor_thread.join()
+
+        # Stop logcat monitoring
+        self.stop_event.set()
+        if self.logcat_process:
+            self.logcat_process.terminate()
 
         # Save session
         self.stop_session()
@@ -553,11 +798,23 @@ def start_web_server(port=8888):
 
         def do_GET(self):
             """Handle GET requests"""
-            if self.path.startswith('/api/monitor/status'):
+            # Strip query string from path
+            path = self.path.split('?')[0]
+
+            print(f"[API] GET {path}")
+
+            if path.startswith('/api/monitor/status'):
                 self.handle_monitor_status()
-            elif self.path.startswith('/api/export/'):
-                session_id = self.path.split('/')[-1]
+            elif path.startswith('/api/export/'):
+                session_id = path.split('/')[-1]
                 self.handle_export(session_id)
+            elif path.startswith('/api/cb/list'):
+                print(f"[API] Handling CB list request")
+                self.handle_cb_list()
+            elif path.startswith('/api/cb/message/'):
+                msg_id = path.split('/')[-1]
+                print(f"[API] Handling CB message request for: {msg_id}")
+                self.handle_cb_message(msg_id)
             else:
                 super().do_GET()
 
@@ -663,6 +920,39 @@ def start_web_server(port=8888):
             self.end_headers()
             self.wfile.write(json.dumps(response).encode())
 
+        def handle_cb_list(self):
+            """Get list of all CB messages"""
+            try:
+                if CB_INDEX_FILE.exists():
+                    with open(CB_INDEX_FILE, 'r') as f:
+                        index = json.load(f)
+                else:
+                    index = {'messages': []}
+
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(index).encode())
+            except Exception as e:
+                self.send_error(500, str(e))
+
+        def handle_cb_message(self, msg_id):
+            """Get specific CB message details"""
+            try:
+                cb_file = CB_LOGS_DIR / f"{msg_id}.json"
+                if cb_file.exists():
+                    with open(cb_file, 'r') as f:
+                        message = json.load(f)
+
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps(message).encode())
+                else:
+                    self.send_error(404, "Message not found")
+            except Exception as e:
+                self.send_error(500, str(e))
+
     # Verify Handler class has do_POST
     print(f"[STARTUP] Handler has do_POST: {hasattr(Handler, 'do_POST')}")
     print(f"[STARTUP] Transmitters file: {TRANSMITTERS_FILE}")
@@ -672,8 +962,9 @@ def start_web_server(port=8888):
         print(f"   Home: http://localhost:{port}/index.html")
         print(f"   Dashboard: http://localhost:{port}/dashboard.html")
         print(f"   Heatmap: http://localhost:{port}/heatmap.html")
+        print(f"   Emergency Warnings: http://localhost:{port}/emergency_warnings.html")
         print(f"   Settings: http://localhost:{port}/settings.html")
-        print(f"   API endpoints: /api/monitor/*, /api/transmitters/*, /api/export/*")
+        print(f"   API endpoints: /api/monitor/*, /api/transmitters/*, /api/export/*, /api/cb/*")
         print(f"   Press Ctrl+C to stop\n")
 
         try:

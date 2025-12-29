@@ -1,0 +1,20 @@
+{
+  "timestamp": "2025-07-16T14:00:30.905000",
+  "receivedTime": null,
+  "serialNumber": 5504,
+  "serviceCategory": 4371,
+  "body": "TEST 6 PRN-RKV",
+  "language": "et",
+  "priority": null,
+  "geographicalScope": 0,
+  "location": ",65534,1024",
+  "geo": null,
+  "cmasInfo": null,
+  "maximumWaitingTime": null,
+  "slotIndex": null,
+  "coordinates": {
+    "latitude": "58.387765",
+    "longitude": "24.503997"
+  },
+  "source": "cb_log_20250716_124351"
+}

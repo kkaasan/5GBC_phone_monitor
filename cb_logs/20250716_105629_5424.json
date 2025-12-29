@@ -1,0 +1,27 @@
+{
+  "timestamp": "2025-07-16T10:56:29.952000",
+  "receivedTime": 1752652589945,
+  "serialNumber": 5424,
+  "serviceCategory": 4373,
+  "body": "TEST 10 meri\nTEST\nSee on Taskusireeni h\u00e4daolukorra teavituss\u00fcsteemi test. Reaalset ohtu ei ole.\nLisainfo: taskusireen.ee ja 1247\nTesti korraldavad Siseministeerium ja Levira\nThis is a test of the Taskusireen public warning system. There is no real danger.\nMore information: taskusireen.ee and +372 600 1247\nThe test is organized by the Ministry of the Interior and Levira.\n\u0422\u0415\u0421\u0422\n\u042d\u0442\u043e \u0442\u0435\u0441\u0442 \u0441\u0438\u0441\u0442\u0435\u043c\u044b \u043e\u043f\u043e\u0432\u0435\u0449\u0435\u043d\u0438\u044f \u043e \u0447\u0440\u0435\u0437\u0432\u044b\u0447\u0430\u0439\u043d\u044b\u0445 \u0441\u0438\u0442\u0443\u0430\u0446\u0438\u044f\u0445 Taskusireen. \u0420\u0435\u0430\u043b\u044c\u043d\u043e\u0439 \u0443\u0433\u0440\u043e\u0437\u044b \u043d\u0435\u0442.\n\u0414\u043e\u043f\u043e\u043b\u043d\u0438\u0442\u0435\u043b\u044c\u043d\u0430\u044f \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044f: taskusireen.ee \u0438 1247\n\u0422\u0435\u0441\u0442 \u043f\u0440\u043e\u0432\u043e\u0434\u044f\u0442 \u041c\u0438\u043d\u0438\u0441\u0442\u0435\u0440\u0441\u0442\u0432\u043e \u0432\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u0438\u0445 \u0434\u0435\u043b \u0438 Levira",
+  "language": "et",
+  "priority": 3,
+  "geographicalScope": 0,
+  "location": ",65534,768",
+  "geo": null,
+  "cmasInfo": {
+    "messageClass": 2,
+    "category": -1,
+    "responseType": -1,
+    "severity": 0,
+    "urgency": 1,
+    "certainty": 0
+  },
+  "maximumWaitingTime": 5,
+  "slotIndex": 0,
+  "coordinates": {
+    "latitude": "59.433448",
+    "longitude": "24.864002"
+  },
+  "source": "cb_log_20250716_085838"
+}

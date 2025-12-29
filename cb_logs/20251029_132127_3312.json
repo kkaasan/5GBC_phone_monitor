@@ -1,0 +1,20 @@
+{
+  "timestamp": "2025-10-29T13:21:27.865000",
+  "receivedTime": null,
+  "serialNumber": 3312,
+  "serviceCategory": 4380,
+  "body": "Test 3",
+  "language": "et",
+  "priority": null,
+  "geographicalScope": 0,
+  "location": ",65534,1280",
+  "geo": null,
+  "cmasInfo": null,
+  "maximumWaitingTime": null,
+  "slotIndex": null,
+  "coordinates": {
+    "latitude": null,
+    "longitude": null
+  },
+  "source": "cb_log_20251029_141435"
+}

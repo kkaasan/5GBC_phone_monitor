@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -14,6 +15,17 @@
 
     <!-- Battery optimization exemption for reliable background network monitoring -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- CB logging permissions -->
+    <!-- READ_LOGS: Required for logcat-based CB logging. Must be granted via ADB:
+         adb shell pm grant ee.levira.cbmonitor android.permission.READ_LOGS -->
+    <uses-permission android:name="android.permission.READ_LOGS"
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- SMS/CB receive permissions (may not work on all devices without system privileges) -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.RECEIVE_EMERGENCY_BROADCAST"
+        tools:ignore="ProtectedPermissions" />
 
     <application
         android:allowBackup="true"
@@ -36,6 +48,18 @@
             android:name=".MonitoringService"
             android:exported="false"
             android:foregroundServiceType="location" />
+
+        <!-- Cell Broadcast Receiver -->
+        <receiver
+            android:name=".CellBroadcastReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_CB_RECEIVED" />
+                <action android:name="android.provider.Telephony.SMS_EMERGENCY_CB_RECEIVED" />
+                <action android:name="android.intent.action.AIRPLANE_MODE" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

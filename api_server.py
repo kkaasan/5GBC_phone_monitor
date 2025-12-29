@@ -17,7 +17,10 @@ from urllib.parse import urlparse, parse_qs
 
 DATA_DIR = Path(__file__).parent / "data"
 LOGS_DIR = Path(__file__).parent / "logs"
+CB_LOGS_DIR = Path(__file__).parent / "cb_logs"
+CB_INDEX_FILE = DATA_DIR / "cb_index.json"
 PHONE_LOG_DIR = "/sdcard/Android/data/ee.levira.cbmonitor/files/cb_monitor"
+PHONE_CB_LOG_DIR = "/sdcard/Android/data/ee.levira.cbmonitor/files/cb_monitor/cb_logs"
 ADB_CANDIDATES = [
     '/opt/homebrew/bin/adb',  # Apple Silicon default
     '/usr/local/bin/adb',     # Intel/macOS default
@@ -142,6 +145,14 @@ class APIHandler(SimpleHTTPRequestHandler):
                 if path_parts[2] == 'status':
                     self.handle_monitor_status()
                     return
+            elif len(path_parts) >= 2 and path_parts[1] == 'cb':
+                if len(path_parts) >= 3 and path_parts[2] == 'list':
+                    self.handle_cb_list()
+                    return
+                elif len(path_parts) >= 4 and path_parts[2] == 'message':
+                    msg_id = path_parts[3]
+                    self.handle_cb_message(msg_id)
+                    return
 
         # Serve static files
         super().do_GET()
@@ -170,6 +181,9 @@ class APIHandler(SimpleHTTPRequestHandler):
                 return
             elif path_parts[1] == 'sessions' and path_parts[2] == 'import_phone':
                 self.handle_sessions_import_phone()
+                return
+            elif path_parts[1] == 'cb' and path_parts[2] == 'import_phone':
+                self.handle_cb_import_phone()
                 return
 
         self.send_error(404, "Not found")
@@ -500,6 +514,41 @@ class APIHandler(SimpleHTTPRequestHandler):
 
         self.wfile.write(output.getvalue().encode('utf-8'))
 
+    def handle_cb_list(self):
+        """Get list of all CB messages"""
+        try:
+            if CB_INDEX_FILE.exists():
+                with open(CB_INDEX_FILE, 'r') as f:
+                    index = json.load(f)
+            else:
+                index = {'messages': []}
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(index).encode('utf-8'))
+        except Exception as e:
+            print(f"[CB ERROR] {e}")
+            self.send_error(500, str(e))
+
+    def handle_cb_message(self, msg_id):
+        """Get specific CB message details"""
+        try:
+            cb_file = CB_LOGS_DIR / f"{msg_id}.json"
+            if cb_file.exists():
+                with open(cb_file, 'r') as f:
+                    message = json.load(f)
+
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(message).encode('utf-8'))
+            else:
+                self.send_error(404, "Message not found")
+        except Exception as e:
+            print(f"[CB ERROR] {e}")
+            self.send_error(500, str(e))
+
     def handle_sessions_import_phone(self):
         """Pull logs from phone storage and delete them on the device"""
         adb_path = resolve_adb_path()
@@ -596,6 +645,138 @@ class APIHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(response).encode('utf-8'))
 
+    def handle_cb_import_phone(self):
+        """Pull CB log files from phone storage and merge with existing logs"""
+        adb_path = resolve_adb_path()
+        if not adb_path:
+            self.send_error(500, "ADB not found on host")
+            return
+
+        # Verify device connection
+        try:
+            result = subprocess.run([adb_path, 'devices'], capture_output=True, text=True, timeout=5)
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr.strip() or "ADB error")
+            device_lines = [line for line in result.stdout.splitlines() if line.strip() and not line.startswith('List')]
+            connected = [line for line in device_lines if 'device' in line.split()]
+            if not connected:
+                self.send_error(400, "No ADB device connected")
+                return
+        except Exception as e:
+            self.send_error(500, f"ADB devices check failed: {e}")
+            return
+
+        # List CB log files on the device
+        try:
+            list_cmd = [adb_path, 'shell', 'ls', f"{PHONE_CB_LOG_DIR}/*.json"]
+            list_result = subprocess.run(list_cmd, capture_output=True, text=True, timeout=10)
+            if list_result.returncode != 0 or "No such file" in list_result.stderr:
+                response = {"success": True, "imported": [], "skipped_existing": [], "failed": [], "message": "No CB logs found on device"}
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps(response).encode('utf-8'))
+                return
+
+            remote_files = [line.strip() for line in list_result.stdout.splitlines() if line.strip() and not line.strip().startswith('ls:')]
+        except Exception as e:
+            self.send_error(500, f"Failed to list CB logs on device: {e}")
+            return
+
+        imported = []
+        skipped_existing = []
+        failed = []
+
+        CB_LOGS_DIR.mkdir(exist_ok=True)
+        DATA_DIR.mkdir(exist_ok=True)
+
+        for remote_file in remote_files:
+            msg_id = Path(remote_file).stem
+            local_path = CB_LOGS_DIR / f"{msg_id}.json"
+
+            if local_path.exists():
+                skipped_existing.append(msg_id)
+                # Remove from device to avoid re-import prompts
+                subprocess.run([adb_path, 'shell', 'rm', remote_file], capture_output=True, text=True)
+                continue
+
+            try:
+                pull_result = subprocess.run([adb_path, 'pull', remote_file, str(local_path)],
+                                             capture_output=True, text=True, timeout=30)
+                if pull_result.returncode != 0:
+                    failed.append(msg_id)
+                    # Ensure partially pulled file does not remain
+                    if local_path.exists():
+                        local_path.unlink()
+                    continue
+
+                # Delete from device after successful pull
+                subprocess.run([adb_path, 'shell', 'rm', remote_file], capture_output=True, text=True)
+
+                # Update CB index
+                try:
+                    with open(local_path, 'r') as f:
+                        cb_record = json.load(f)
+                    update_cb_index_entry(msg_id, cb_record)
+                    imported.append(msg_id)
+                except Exception:
+                    failed.append(msg_id)
+            except Exception:
+                failed.append(msg_id)
+                if local_path.exists():
+                    local_path.unlink()
+
+        message = "Import complete"
+        if not imported and not skipped_existing:
+            message = "No new CB messages imported"
+
+        response = {
+            "success": True,
+            "imported": imported,
+            "skipped_existing": skipped_existing,
+            "failed": failed,
+            "message": message
+        }
+
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(response).encode('utf-8'))
+
+def update_cb_index_entry(msg_id, cb_record):
+    """Update CB index with a single entry"""
+    try:
+        if CB_INDEX_FILE.exists():
+            with open(CB_INDEX_FILE, 'r') as f:
+                index = json.load(f)
+        else:
+            index = {'messages': []}
+
+        # Extract heading from body
+        body = cb_record.get('body', '')
+        heading = body.split('\n')[0][:100] if body else 'CB Message'
+
+        # Create index entry
+        index_entry = {
+            'id': msg_id,
+            'timestamp': cb_record.get('timestamp'),
+            'heading': heading,
+            'priority': cb_record.get('priority'),
+            'language': cb_record.get('language'),
+            'serviceCategory': cb_record.get('serviceCategory')
+        }
+
+        # Check if already exists
+        existing = [m for m in index.get('messages', []) if m.get('id') == msg_id]
+        if not existing:
+            index.setdefault('messages', []).insert(0, index_entry)
+
+            with open(CB_INDEX_FILE, 'w') as f:
+                json.dump(index, f, indent=2)
+
+    except Exception as e:
+        print(f"[CB ERROR] Error updating CB index: {e}")
+
 def start_server(port=8888):
     """Start the API server"""
     os.chdir(Path(__file__).parent)
@@ -609,7 +790,7 @@ def start_server(port=8888):
     print(f"   Heatmap: http://localhost:{port}/heatmap.html")
     print(f"   Settings: http://localhost:{port}/settings.html")
     print(f"   Sessions: http://localhost:{port}/sessions.html")
-    print(f"\n   API endpoints: /api/monitor/*, /api/transmitters/*, /api/export/*")
+    print(f"\n   API endpoints: /api/monitor/*, /api/transmitters/*, /api/export/*, /api/cb/*")
     print(f"\n   Press Ctrl+C to stop\n")
 
     try:

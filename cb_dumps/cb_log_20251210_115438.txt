@@ -1,0 +1,440 @@
+--------- beginning of main
+12-10 11:42:25.687 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 11:42:25.704 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 11:42:25.704 D/CellBroadcastReceiver(20431): networkOperator: 
+12-10 11:43:15.508 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 11:43:15.513 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 11:43:15.513 D/CellBroadcastReceiver(20431): networkOperator: 
+12-10 11:48:45.395 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 11:48:45.399 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 11:48:45.399 D/CellBroadcastReceiver(20431): networkOperator: 
+12-10 11:48:49.504 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 11:48:49.510 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 11:48:49.510 D/CellBroadcastReceiver(20431): networkOperator: 
+
+----- NETWORK SNAPSHOT 2025-12-10 11:54:39 -----
+Unknown command: cell-info
+Location: Latitude=59.435654, Longitude=24.739823
+
+----- NETWORK SNAPSHOT 2025-12-10 11:55:10 -----
+Unknown command: cell-info
+Location: Latitude=59.435653, Longitude=24.739823
+
+----- NETWORK SNAPSHOT 2025-12-10 11:55:40 -----
+Unknown command: cell-info
+Location: Latitude=59.435654, Longitude=24.739823
+
+----- NETWORK SNAPSHOT 2025-12-10 11:56:11 -----
+Unknown command: cell-info
+Location: Latitude=59.435653, Longitude=24.739824
+
+----- NETWORK SNAPSHOT 2025-12-10 11:56:41 -----
+Unknown command: cell-info
+Location: Latitude=59.435653, Longitude=24.739824
+
+----- NETWORK SNAPSHOT 2025-12-10 11:57:12 -----
+Unknown command: cell-info
+Location: Latitude=59.435652, Longitude=24.739826
+
+----- NETWORK SNAPSHOT 2025-12-10 11:57:42 -----
+Unknown command: cell-info
+Location: Latitude=59.435652, Longitude=24.739826
+
+----- NETWORK SNAPSHOT 2025-12-10 11:58:12 -----
+Unknown command: cell-info
+Location: Latitude=59.435652, Longitude=24.739826
+
+----- NETWORK SNAPSHOT 2025-12-10 11:58:43 -----
+Unknown command: cell-info
+Location: Latitude=59.435651, Longitude=24.739827
+
+----- NETWORK SNAPSHOT 2025-12-10 11:59:13 -----
+Unknown command: cell-info
+Location: Latitude=59.435651, Longitude=24.739827
+
+----- NETWORK SNAPSHOT 2025-12-10 11:59:44 -----
+Unknown command: cell-info
+Location: Latitude=59.435651, Longitude=24.739826
+
+----- NETWORK SNAPSHOT 2025-12-10 12:00:14 -----
+Unknown command: cell-info
+Location: Latitude=59.435973, Longitude=24.739708
+
+----- NETWORK SNAPSHOT 2025-12-10 12:00:45 -----
+Unknown command: cell-info
+Location: Latitude=59.435853, Longitude=24.738755
+
+----- NETWORK SNAPSHOT 2025-12-10 12:01:15 -----
+Unknown command: cell-info
+Location: Latitude=59.434931, Longitude=24.739020
+
+----- NETWORK SNAPSHOT 2025-12-10 12:01:46 -----
+Unknown command: cell-info
+Location: Latitude=59.434808, Longitude=24.736481
+
+----- NETWORK SNAPSHOT 2025-12-10 12:02:16 -----
+Unknown command: cell-info
+Location: Latitude=59.434873, Longitude=24.733425
+
+----- NETWORK SNAPSHOT 2025-12-10 12:02:46 -----
+Unknown command: cell-info
+Location: Latitude=59.434874, Longitude=24.733390
+
+----- NETWORK SNAPSHOT 2025-12-10 12:03:17 -----
+Unknown command: cell-info
+Location: Latitude=59.435528, Longitude=24.732717
+
+----- NETWORK SNAPSHOT 2025-12-10 12:03:47 -----
+Unknown command: cell-info
+Location: Latitude=59.435838, Longitude=24.732589
+
+----- NETWORK SNAPSHOT 2025-12-10 12:04:18 -----
+Unknown command: cell-info
+Location: Latitude=59.436537, Longitude=24.732346
+
+----- NETWORK SNAPSHOT 2025-12-10 12:04:48 -----
+Unknown command: cell-info
+Location: Latitude=59.436571, Longitude=24.729196
+
+----- NETWORK SNAPSHOT 2025-12-10 12:05:19 -----
+Unknown command: cell-info
+Location: Latitude=59.435825, Longitude=24.726664
+
+----- NETWORK SNAPSHOT 2025-12-10 12:05:49 -----
+Unknown command: cell-info
+Location: Latitude=59.436961, Longitude=24.724283
+
+----- NETWORK SNAPSHOT 2025-12-10 12:06:20 -----
+Unknown command: cell-info
+Location: Latitude=59.437984, Longitude=24.724590
+
+----- NETWORK SNAPSHOT 2025-12-10 12:06:50 -----
+Unknown command: cell-info
+Location: Latitude=59.439267, Longitude=24.727237
+
+----- NETWORK SNAPSHOT 2025-12-10 12:07:21 -----
+Unknown command: cell-info
+Location: Latitude=59.440338, Longitude=24.729301
+
+----- NETWORK SNAPSHOT 2025-12-10 12:07:51 -----
+Unknown command: cell-info
+Location: Latitude=59.440297, Longitude=24.731440
+12-10 12:10:42.315 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 12:10:42.322 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 12:10:42.322 D/CellBroadcastReceiver(20431): networkOperator: 
+12-10 12:11:01.742 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 12:11:01.747 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 12:11:01.748 D/CellBroadcastReceiver(20431): networkOperator: 
+
+----- NETWORK SNAPSHOT 2025-12-10 12:08:21 -----
+Unknown command: cell-info
+Location: Latitude=59.440439, Longitude=24.733475
+
+----- NETWORK SNAPSHOT 2025-12-10 12:08:52 -----
+Unknown command: cell-info
+Location: Latitude=59.440515, Longitude=24.734513
+
+----- NETWORK SNAPSHOT 2025-12-10 12:09:22 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:09:53 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:10:23 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:10:54 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:11:24 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:11:55 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:12:25 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:12:56 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:13:26 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:13:56 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:14:27 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:14:57 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:15:28 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:15:58 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:16:29 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:16:59 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:17:30 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:18:00 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:18:31 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+12-10 12:21:34.114 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 12:21:34.119 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 12:21:34.119 D/CellBroadcastReceiver(20431): networkOperator: 
+
+----- NETWORK SNAPSHOT 2025-12-10 12:19:01 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+12-10 12:22:09.904 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 12:22:09.907 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 12:22:09.907 D/CellBroadcastReceiver(20431): networkOperator: 
+
+----- NETWORK SNAPSHOT 2025-12-10 12:19:32 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:20:02 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:20:32 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:21:03 -----
+Unknown command: cell-info
+Location: Latitude=59.440586, Longitude=24.734689
+
+----- NETWORK SNAPSHOT 2025-12-10 12:21:33 -----
+Unknown command: cell-info
+Location: Latitude=59.440615, Longitude=24.734685
+
+----- NETWORK SNAPSHOT 2025-12-10 12:22:04 -----
+Unknown command: cell-info
+Location: Latitude=59.440615, Longitude=24.734685
+
+----- NETWORK SNAPSHOT 2025-12-10 12:22:34 -----
+Unknown command: cell-info
+Location: Latitude=59.440615, Longitude=24.734685
+
+----- NETWORK SNAPSHOT 2025-12-10 12:23:05 -----
+Unknown command: cell-info
+Location: Latitude=59.440615, Longitude=24.734685
+
+----- NETWORK SNAPSHOT 2025-12-10 12:23:35 -----
+Unknown command: cell-info
+Location: Latitude=59.440615, Longitude=24.734685
+
+----- NETWORK SNAPSHOT 2025-12-10 12:24:06 -----
+Unknown command: cell-info
+Location: Latitude=59.440615, Longitude=24.734685
+
+----- NETWORK SNAPSHOT 2025-12-10 12:24:36 -----
+Unknown command: cell-info
+Location: Latitude=59.440615, Longitude=24.734685
+
+----- NETWORK SNAPSHOT 2025-12-10 12:25:07 -----
+Unknown command: cell-info
+Location: Latitude=59.440615, Longitude=24.734685
+
+----- NETWORK SNAPSHOT 2025-12-10 12:25:37 -----
+Unknown command: cell-info
+Location: Latitude=59.440615, Longitude=24.734685
+
+----- NETWORK SNAPSHOT 2025-12-10 12:26:08 -----
+Unknown command: cell-info
+Location: Latitude=59.440615, Longitude=24.734685
+
+----- NETWORK SNAPSHOT 2025-12-10 12:26:38 -----
+Unknown command: cell-info
+Location: Latitude=59.440611, Longitude=24.734701
+
+----- NETWORK SNAPSHOT 2025-12-10 12:27:08 -----
+Unknown command: cell-info
+Location: Latitude=59.440611, Longitude=24.734701
+
+----- NETWORK SNAPSHOT 2025-12-10 12:27:39 -----
+Unknown command: cell-info
+Location: Latitude=59.440611, Longitude=24.734701
+
+----- NETWORK SNAPSHOT 2025-12-10 12:28:09 -----
+Unknown command: cell-info
+Location: Latitude=59.440611, Longitude=24.734701
+
+----- NETWORK SNAPSHOT 2025-12-10 12:28:40 -----
+Unknown command: cell-info
+Location: Latitude=59.440611, Longitude=24.734701
+
+----- NETWORK SNAPSHOT 2025-12-10 12:29:11 -----
+Unknown command: cell-info
+Location: Latitude=59.440611, Longitude=24.734701
+
+----- NETWORK SNAPSHOT 2025-12-10 12:29:41 -----
+Unknown command: cell-info
+Location: Latitude=59.440611, Longitude=24.734701
+
+----- NETWORK SNAPSHOT 2025-12-10 12:30:12 -----
+Unknown command: cell-info
+Location: Latitude=59.440611, Longitude=24.734701
+
+----- NETWORK SNAPSHOT 2025-12-10 12:30:42 -----
+Unknown command: cell-info
+Location: Latitude=59.440611, Longitude=24.734701
+12-10 12:33:43.546 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 12:33:43.554 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 12:33:43.554 D/CellBroadcastReceiver(20431): networkOperator: 
+12-10 12:33:53.073 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.provider.action.SMS_EMERGENCY_CB_RECEIVED flg=0x10000010 pkg=com.google.android.cellbroadcastreceiver cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 12:33:53.096 D/CBAlertService(20431): onStartCommand: android.provider.action.SMS_EMERGENCY_CB_RECEIVED
+12-10 12:33:53.126 D/CBAlertService(20431): onStartCommand: cellbroadcastreceiver.SHOW_NEW_ALERT
+12-10 12:33:53.133 D/CBChannelManager(20431): isEmergencyMessage: true, message id = 4380
+12-10 12:33:53.145 D/CellBroadcastContentProvider(20431): database changed: notifying observers...
+12-10 12:33:53.146 D/CBAlertService(20431): Message language = et
+12-10 12:33:53.150 D/CBAlertService(20431): openEmergencyAlertNotification: current displayId = 0
+12-10 12:33:53.197 D/CellBroadcastAlertAudio(20431): onStartCommand
+12-10 12:33:53.199 D/CellBroadcastAlertAudio(20431): Ringer mode: normal
+12-10 12:33:53.200 I/TextToSpeech(20431): Sucessfully bound to com.google.android.tts
+12-10 12:33:53.200 D/CellBroadcastAlertAudio(20431): stop()
+12-10 12:33:53.201 D/CellBroadcastAlertAudio(20431): Set state from 0 to 0
+12-10 12:33:53.201 D/CellBroadcastAlertAudio(20431): playAlertTone: alertType=DEFAULT, mEnableVibrate=true, mEnableAudio=true, mOverrideDnd=false, mSubId=1
+12-10 12:33:53.202 D/CellBroadcastAlertAudio(20431): vibrate: effect=Composed{segments=[Step{amplitude=0.0, frequencyHz=0.0, duration=0}, Step{amplitude=-1.0, frequencyHz=0.0, duration=2000}, Step{amplitude=0.0, frequencyHz=0.0, duration=500}, Step{amplitude=-1.0, frequencyHz=0.0, duration=1000}, Step{amplitude=0.0, frequencyHz=0.0, duration=500}, Step{amplitude=-1.0, frequencyHz=0.0, duration=1000}, Step{amplitude=0.0, frequencyHz=0.0, duration=500}, Step{amplitude=-1.0, frequencyHz=0.0, duration=2000}, Step{amplitude=0.0, frequencyHz=0.0, duration=500}, Step{amplitude=-1.0, frequencyHz=0.0, duration=1000}, Step{amplitude=0.0, frequencyHz=0.0, duration=500}, Step{amplitude=-1.0, frequencyHz=0.0, duration=1000}], repeat=-1}, attr=AudioAttributes: usage=USAGE_ALARM content=CONTENT_TYPE_UNKNOWN flags=0x800 tags= bundle=null, duration=-1
+12-10 12:33:53.205 D/CellBroadcastAlertAudio(20431): Locale=[et_EE], alertType=DEFAULT
+12-10 12:33:53.241 D/CellBroadcastAlertAudio(20431): Set state from 0 to 1
+12-10 12:33:53.257 D/CBChannelManager(20431): isEmergencyMessage: true, message id = 4380
+12-10 12:33:53.260 D/CBChannelManager(20431): isEmergencyMessage: true, message id = 4380
+12-10 12:33:53.272 D/CBChannelManager(20431): isEmergencyMessage: true, message id = 4380
+12-10 12:33:53.387 D/CBChannelManager(20431): isEmergencyMessage: true, message id = 4380
+12-10 12:33:53.590 I/TextToSpeech(20431): Connected to TTS engine
+12-10 12:33:53.816 I/TextToSpeech(20431): Setting up the connection to TTS engine...
+12-10 12:33:53.816 D/CellBroadcastAlertAudio(20431): onInit() TTS engine status: 0
+12-10 12:33:53.816 D/CellBroadcastAlertAudio(20431): Setting TTS language to 'et_EE'
+12-10 12:33:53.838 D/CellBroadcastAlertAudio(20431): TTS setLanguage() returned: 1
+12-10 12:34:03.932 D/CellBroadcastAlertAudio(20431): Audio playback complete.
+12-10 12:34:03.932 D/CellBroadcastAlertAudio(20431): ALERT_SOUND_FINISHED
+12-10 12:34:03.932 D/CellBroadcastAlertAudio(20431): stop()
+12-10 12:34:03.937 D/CellBroadcastAlertAudio(20431): Set state from 1 to 0
+12-10 12:34:03.937 D/CellBroadcastAlertAudio(20431): Set state from 0 to 2
+12-10 12:34:04.937 D/CellBroadcastAlertAudio(20431): ALERT_PAUSE_FINISHED
+12-10 12:34:04.937 D/CellBroadcastAlertAudio(20431): Speaking broadcast text: 5GBC test2 12.30
+12-10 12:34:04.937 D/CellBroadcastAlertAudio(20431): 
+12-10 12:34:04.937 D/CellBroadcastAlertAudio(20431): TEST! TEST! TEST! Päästeamet: Täna, 10. detsembril toimub tehniline test. Võid päeva jooksul saada mitu test-teavitust. Lisainfo: taskusireen.ee
+12-10 12:34:04.937 D/CellBroadcastAlertAudio(20431): TEST! TEST! TEST!  Rescue Service: Today, Dec 10 technical test is carried out. You may receive several tests alerts within the day. More information on taskusireen.ee
+12-10 12:34:04.937 D/CellBroadcastAlertAudio(20431): 
+12-10 12:34:04.937 D/CellBroadcastAlertAudio(20431): 
+12-10 12:34:04.939 D/CellBroadcastAlertAudio(20431): Set state from 2 to 3
+12-10 12:34:20.136 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 12:34:20.138 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 12:34:20.138 D/CellBroadcastReceiver(20431): networkOperator: 
+12-10 12:34:28.959 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.provider.action.SMS_EMERGENCY_CB_RECEIVED flg=0x10000010 pkg=com.google.android.cellbroadcastreceiver cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 12:34:28.962 D/CBAlertService(20431): onStartCommand: android.provider.action.SMS_EMERGENCY_CB_RECEIVED
+12-10 12:34:28.968 D/CBAlertService(20431): onStartCommand: cellbroadcastreceiver.SHOW_NEW_ALERT
+12-10 12:34:28.970 D/CBChannelManager(20431): isEmergencyMessage: true, message id = 4380
+12-10 12:34:28.974 D/CBAlertService(20431): Message language = et
+12-10 12:34:28.975 D/CBAlertService(20431): openEmergencyAlertNotification: current displayId = 0
+12-10 12:34:28.985 D/CellBroadcastAlertAudio(20431): onStartCommand
+12-10 12:34:28.986 D/CellBroadcastAlertAudio(20431): Ringer mode: normal
+12-10 12:34:28.986 D/CellBroadcastAlertAudio(20431): Setting TTS language to 'et_EE'
+12-10 12:34:28.992 D/CellBroadcastContentProvider(20431): database changed: notifying observers...
+12-10 12:34:29.010 D/CellBroadcastAlertAudio(20431): TTS setLanguage() returned: 1
+12-10 12:34:29.010 D/CellBroadcastAlertAudio(20431): stop()
+12-10 12:34:29.011 D/CellBroadcastAlertAudio(20431): Set state from 3 to 0
+12-10 12:34:29.011 D/CellBroadcastAlertAudio(20431): playAlertTone: alertType=DEFAULT, mEnableVibrate=true, mEnableAudio=true, mOverrideDnd=false, mSubId=1
+12-10 12:34:29.014 D/CellBroadcastAlertAudio(20431): vibrate: effect=Composed{segments=[Step{amplitude=0.0, frequencyHz=0.0, duration=0}, Step{amplitude=-1.0, frequencyHz=0.0, duration=2000}, Step{amplitude=0.0, frequencyHz=0.0, duration=500}, Step{amplitude=-1.0, frequencyHz=0.0, duration=1000}, Step{amplitude=0.0, frequencyHz=0.0, duration=500}, Step{amplitude=-1.0, frequencyHz=0.0, duration=1000}, Step{amplitude=0.0, frequencyHz=0.0, duration=500}, Step{amplitude=-1.0, frequencyHz=0.0, duration=2000}, Step{amplitude=0.0, frequencyHz=0.0, duration=500}, Step{amplitude=-1.0, frequencyHz=0.0, duration=1000}, Step{amplitude=0.0, frequencyHz=0.0, duration=500}, Step{amplitude=-1.0, frequencyHz=0.0, duration=1000}], repeat=-1}, attr=AudioAttributes: usage=USAGE_ALARM content=CONTENT_TYPE_UNKNOWN flags=0x800 tags= bundle=null, duration=-1
+12-10 12:34:29.016 D/CellBroadcastAlertAudio(20431): Locale=[et_EE], alertType=DEFAULT
+12-10 12:34:29.036 D/CellBroadcastAlertAudio(20431): Set state from 0 to 1
+12-10 12:34:29.042 D/CBChannelManager(20431): isEmergencyMessage: true, message id = 4380
+12-10 12:34:29.046 D/CBChannelManager(20431): isEmergencyMessage: true, message id = 4380
+12-10 12:34:29.046 D/CBChannelManager(20431): isEmergencyMessage: true, message id = 4380
+
+----- NETWORK SNAPSHOT 2025-12-10 12:31:52 -----
+Unknown command: cell-info
+Location: Latitude=59.440602, Longitude=24.734703
+12-10 12:34:39.651 D/CellBroadcastAlertAudio(20431): Audio playback complete.
+12-10 12:34:39.651 D/CellBroadcastAlertAudio(20431): ALERT_SOUND_FINISHED
+12-10 12:34:39.651 D/CellBroadcastAlertAudio(20431): stop()
+12-10 12:34:39.657 D/CellBroadcastAlertAudio(20431): Set state from 1 to 0
+12-10 12:34:39.657 D/CellBroadcastAlertAudio(20431): Set state from 0 to 2
+12-10 12:34:40.658 D/CellBroadcastAlertAudio(20431): ALERT_PAUSE_FINISHED
+12-10 12:34:40.658 D/CellBroadcastAlertAudio(20431): Speaking broadcast text: 5GBC test2 12.30
+12-10 12:34:40.658 D/CellBroadcastAlertAudio(20431): 
+12-10 12:34:40.658 D/CellBroadcastAlertAudio(20431): TEST! TEST! TEST! Päästeamet: Täna, 10. detsembril toimub tehniline test. Võid päeva jooksul saada mitu test-teavitust. Lisainfo: taskusireen.ee
+12-10 12:34:40.658 D/CellBroadcastAlertAudio(20431): TEST! TEST! TEST!  Rescue Service: Today, Dec 10 technical test is carried out. You may receive several tests alerts within the day. More information on taskusireen.ee
+12-10 12:34:40.658 D/CellBroadcastAlertAudio(20431): 
+12-10 12:34:40.658 D/CellBroadcastAlertAudio(20431): 
+12-10 12:34:40.661 D/CellBroadcastAlertAudio(20431): Set state from 2 to 3
+
+----- NETWORK SNAPSHOT 2025-12-10 12:32:22 -----
+Unknown command: cell-info
+Location: Latitude=59.440602, Longitude=24.734703
+12-10 12:35:09.950 D/CellBroadcastAlertAudio(20431): TTS completed. Stop CellBroadcastAlertAudio service
+12-10 12:35:09.950 D/CellBroadcastAlertAudio(20431): stopAlertAudioService, current state is 3
+12-10 12:35:09.950 D/CellBroadcastAlertAudio(20431): Set state from 3 to 4
+12-10 12:35:09.952 D/CellBroadcastAlertAudio(20431): Set state from 4 to 4
+12-10 12:35:09.952 D/CellBroadcastAlertAudio(20431): onDestroy
+12-10 12:35:09.952 D/CellBroadcastAlertAudio(20431): stop()
+12-10 12:35:09.952 D/CellBroadcastAlertAudio(20431): Successful to stop AlertAudioService[2]
+12-10 12:35:09.956 I/TextToSpeech(20431): Disconnected from TTS engine
+12-10 12:35:39.691 D/CBChannelManager(20431): isEmergencyMessage: true, message id = 4380
+12-10 12:35:39.691 D/CBChannelManager(20431): isEmergencyMessage: true, message id = 4380
+12-10 12:35:39.708 D/CellBroadcastContentProvider(20431): database changed: notifying observers...
+12-10 12:35:40.774 D/CellBroadcastContentProvider(20431): database changed: notifying observers...
+
+----- NETWORK SNAPSHOT 2025-12-10 12:33:41 -----
+Unknown command: cell-info
+Location: Latitude=59.440602, Longitude=24.734703
+
+----- NETWORK SNAPSHOT 2025-12-10 12:34:11 -----
+Unknown command: cell-info
+Location: Latitude=59.440602, Longitude=24.734703
+
+----- NETWORK SNAPSHOT 2025-12-10 12:34:42 -----
+Unknown command: cell-info
+Location: Latitude=59.440602, Longitude=24.734703
+
+----- NETWORK SNAPSHOT 2025-12-10 12:35:12 -----
+Unknown command: cell-info
+Location: Latitude=59.440602, Longitude=24.734703
+12-10 12:47:41.510 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 12:47:41.517 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 12:47:41.517 D/CellBroadcastReceiver(20431): networkOperator: 
+12-10 12:47:51.963 D/CellBroadcastReceiver(20431): onReceive Intent { act=android.intent.action.SERVICE_STATE flg=0x1000010 cmp=com.google.android.cellbroadcastreceiver/com.android.cellbroadcastreceiver.CellBroadcastReceiver (has extras) }
+12-10 12:47:51.967 D/CellBroadcastReceiver(20431): onServiceStateChanged, ss: 1
+12-10 12:47:51.967 D/CellBroadcastReceiver(20431): networkOperator: 
+
+----- NETWORK SNAPSHOT 2025-12-10 12:51:31 -----
+Unknown command: cell-info
+Location: Latitude=59.440602, Longitude=24.734703
+
+----- NETWORK SNAPSHOT 2025-12-10 12:56:49 -----
+Unknown command: cell-info
+Location: Latitude=59.440602, Longitude=24.734703
