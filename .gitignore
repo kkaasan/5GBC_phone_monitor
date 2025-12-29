@@ -1,6 +1,8 @@
 # Data and logs
 data/
 logs/
+cb_logs/
+cb_dumps/
 *.jsonl
 *.csv
 
