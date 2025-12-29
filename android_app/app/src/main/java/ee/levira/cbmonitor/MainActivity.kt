@@ -49,6 +49,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var gpsStatusValue: TextView
     private lateinit var coordsValue: TextView
     private lateinit var logView: TextView
+    private lateinit var logFileNameValue: TextView
     private lateinit var gpsRow: LinearLayout
     private lateinit var coordsRow: LinearLayout
     private var pendingStartAction: (() -> Unit)? = null
@@ -93,6 +94,7 @@ class MainActivity : AppCompatActivity() {
         gpsStatusValue = findViewById(R.id.gpsStatusValue)
         coordsValue = findViewById(R.id.coordsValue)
         logView = findViewById(R.id.logView)
+        logFileNameValue = findViewById(R.id.logFileNameValue)
         gpsRow = findViewById(R.id.gpsRow)
         coordsRow = findViewById(R.id.coordsRow)
         loggingBorder = findViewById(R.id.loggingBorder)
@@ -310,7 +312,7 @@ class MainActivity : AppCompatActivity() {
         try {
             val dir = getExternalFilesDir("cb_monitor") ?: filesDir
             val statusFile = File(dir, "status.json")
-            
+
             // Try to get current session ID from status.json
             var sessionId: String? = null
             if (statusFile.exists()) {
@@ -328,6 +330,13 @@ class MainActivity : AppCompatActivity() {
                 if (logFiles != null && logFiles.isNotEmpty()) {
                     sessionId = logFiles.maxByOrNull { it.lastModified() }?.name?.removeSuffix(".jsonl")
                 }
+            }
+
+            // Update log file name display
+            if (sessionId != null) {
+                logFileNameValue.text = "📄 $sessionId.jsonl"
+            } else {
+                logFileNameValue.text = "No active logging session"
             }
 
             if (sessionId == null) {
@@ -452,7 +461,9 @@ class MainActivity : AppCompatActivity() {
         val telephony = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
         val location = getLatestLocationQuick()
         val coordsText = location?.let { "${formatCoord(it.latitude)}, ${formatCoord(it.longitude)}" } ?: "-"
-        val ageSeconds = location?.let { ((System.currentTimeMillis() - it.time) / 1000).toInt().coerceAtLeast(0) }
+        val ageSeconds = location?.let {
+            ((SystemClock.elapsedRealtimeNanos() - it.elapsedRealtimeNanos) / 1_000_000_000L).toInt().coerceAtLeast(0)
+        }
         val satUsedCount = lastSatUsed
         val satSummary = formatSatelliteStatus()
         val gpsStatus = when {

@@ -2,7 +2,7 @@
 
 Professional 5G Broadcast signal analysis and coverage mapping tool for real-time RSRP/RSRQ monitoring with GPS correlation and modulation threshold analysis.
 
-![Version](https://img.shields.io/badge/version-1.3-blue)
+![Version](https://img.shields.io/badge/version-1.3.1-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
 ![Android](https://img.shields.io/badge/android-8.0+-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -715,12 +715,20 @@ MIT License - Use freely for testing and analysis purposes.
 
 ---
 
-**Version**: 1.3
+**Version**: 1.3.1
 **Created**: December 2025
 **Purpose**: Professional 5G Broadcast signal monitoring, coverage analysis, and emergency alert system testing
 **Tech Stack**: Python 3, Leaflet.js, Android ADB, Kotlin/Android, JSONL storage
 
-**What's New in v1.3:**
+**What's New in v1.3.1:**
+- 🐛 **GPS Age Fix** - Fixed GPS age display using monotonic clock (elapsedRealtimeNanos) instead of wall clock
+  - Resolves issue where GPS showed stale age (e.g., "~141s ago") while coordinates were updating
+  - Age display now consistent with actual location freshness
+- 📄 **Log File Display** - Added current log file name display in Android app
+  - Shows active session filename (e.g., "20251229_143022.jsonl") above log entries
+  - Helps users identify which log file is being written
+
+**Previous Updates (v1.3):**
 - 🚨 **Cell Broadcast Emergency Warnings** - Real-time CB message monitoring via ADB logcat (desktop) and on-device capture (Android app)
 - 📱 **Android App CB Logging** - Native on-device CB capture using LogcatCBLogger (requires READ_LOGS permission)
   - Enable via: `adb shell pm grant ee.levira.cbmonitor android.permission.READ_LOGS`
