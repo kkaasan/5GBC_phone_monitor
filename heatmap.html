@@ -91,6 +91,26 @@
             border-radius: 5px;
             font-size: 13px;
             min-height: 100px;
+            transition: min-height 0.3s ease;
+        }
+        .session-selector.expanded {
+            min-height: 400px;
+        }
+        .expand-session-btn {
+            width: 100%;
+            padding: 6px;
+            margin-top: 5px;
+            border: 1px solid #667eea;
+            border-radius: 4px;
+            background: white;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        .expand-session-btn:hover {
+            background: #667eea;
+            color: white;
         }
         .select-buttons {
             display: grid;
@@ -254,11 +274,11 @@
 
     <div id="map"></div>
 
-    <div class="control-panel collapsed" id="controlPanel">
+    <div class="control-panel" id="controlPanel">
         <div class="control-panel-header">
             <h3>🗺️ Heatmap Controls</h3>
             <button class="collapse-btn" onclick="toggleControlPanel()" title="Collapse/Expand">
-                <span id="collapseIcon">▶</span>
+                <span id="collapseIcon">◀</span>
             </button>
         </div>
 
@@ -268,6 +288,9 @@
                 <select class="session-selector" id="sessionSelect" multiple>
                     <option value="">Loading sessions...</option>
                 </select>
+                <button class="expand-session-btn" id="expandSessionBtn" onclick="toggleSessionExpansion()">
+                    <span id="expandIcon">⬇️</span> Expand List
+                </button>
                 <div class="select-buttons">
                     <button class="select-all-btn" onclick="selectAllSessions()">✓ Select All</button>
                     <button class="select-all-btn" onclick="clearAllSessions()">✕ Clear All</button>
@@ -1131,6 +1154,23 @@
                 icon.textContent = '▶';
             } else {
                 icon.textContent = '◀';
+            }
+        }
+
+        // Toggle session list expansion
+        function toggleSessionExpansion() {
+            const sessionSelect = document.getElementById('sessionSelect');
+            const expandBtn = document.getElementById('expandSessionBtn');
+            const expandIcon = document.getElementById('expandIcon');
+
+            sessionSelect.classList.toggle('expanded');
+
+            if (sessionSelect.classList.contains('expanded')) {
+                expandIcon.textContent = '⬆️';
+                expandBtn.innerHTML = '<span id="expandIcon">⬆️</span> Collapse List';
+            } else {
+                expandIcon.textContent = '⬇️';
+                expandBtn.innerHTML = '<span id="expandIcon">⬇️</span> Expand List';
             }
         }
 
