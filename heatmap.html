@@ -535,10 +535,9 @@
                     // Load in background after dropdown is populated
                     setTimeout(() => loadSessions([requestedSession]), 0);
                 } else if (sortedSessions.length > 0) {
-                    // Auto-select first session
+                    // Just select first session, don't auto-load (user can click to load)
                     select.value = sortedSessions[0].session_id;
-                    // Auto-load in background after dropdown is populated
-                    setTimeout(() => loadSessions([sortedSessions[0].session_id], { suppressAlerts: true }), 0);
+                    document.getElementById('sessionStats').innerHTML = '<p>👆 Select session(s) above to load data</p>';
                 }
 
             } catch (error) {
