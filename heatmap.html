@@ -650,15 +650,31 @@
                     document.getElementById('dateFilter').value = firstDate.toISOString().split('T')[0];
                 }
 
-                console.time('Update visualization');
-                updateVisualization();
-                console.timeEnd('Update visualization');
+                // Auto-zoom to fit data FIRST (before rendering heatmap)
+                console.time('Auto-zoom');
+                const routeCoords = currentData
+                    .filter(p => p.location.latitude && p.location.longitude)
+                    .map(p => [parseFloat(p.location.latitude), parseFloat(p.location.longitude)]);
+                if (routeCoords.length > 0) {
+                    map.fitBounds(L.latLngBounds(routeCoords), { padding: [50, 50] });
+                }
+                console.timeEnd('Auto-zoom');
 
-                console.time('Update stats');
-                updateStats();
-                console.timeEnd('Update stats');
+                // Wait for map to finish animating, then render visualization
+                setTimeout(() => {
+                    console.time('Update visualization');
+                    updateVisualization();
+                    console.timeEnd('Update visualization');
 
-                console.timeEnd('Total load time');
+                    console.time('Update stats');
+                    updateStats();
+                    console.timeEnd('Update stats');
+
+                    // Clear loading flag after everything is done
+                    isLoadingSession = false;
+                    console.timeEnd('Total load time');
+                }, 600); // Wait for map animation to complete
+
                 return true;
 
             } catch (error) {
@@ -1132,19 +1148,11 @@
                 map.removeLayer(routeLayer);
             }
 
-            // Fit bounds to show all data points
-            if (routeCoords.length > 0 && isLoadingSession) {
-                map.fitBounds(L.latLngBounds(routeCoords), { padding: [50, 50] });
-                // Clear loading flag after map animation completes (prevents event listener from re-triggering)
-                setTimeout(() => { isLoadingSession = false; }, 500);
-            } else {
-                // No auto-zoom, clear flag immediately
-                isLoadingSession = false;
-            }
+            // Auto-zoom is now handled in loadSessions() before calling this function
+            // No need to fitBounds here anymore
 
             } catch (vizError) {
                 console.error('Visualization error:', vizError);
-                isLoadingSession = false;
             }
         }
 
