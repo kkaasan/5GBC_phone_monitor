@@ -358,7 +358,7 @@
                     <button class="bulk-btn delete" onclick="deleteSelected()">🗑️ Delete Selected</button>
                     <button class="refresh-btn import-btn" id="importBtn" onclick="importFromPhone()">📲 Import from Phone</button>
                     <button class="refresh-btn import-btn" onclick="document.getElementById('fileInput').click()">📁 Import Log Files</button>
-                    <input type="file" id="fileInput" accept=".jsonl" multiple style="display: none;" onchange="importLocalFiles(this.files)">
+                    <input type="file" id="fileInput" accept=".jsonl,.json" multiple style="display: none;" onchange="importLocalFiles(this.files)">
                     <button class="refresh-btn" onclick="loadSessions()">🔄 Refresh</button>
                 </div>
             </div>
@@ -659,17 +659,31 @@
             }
 
             try {
-                const response = await fetch('/api/sessions/import_phone', { method: 'POST' });
-                if (!response.ok) {
-                    throw new Error(`Server responded ${response.status}`);
+                // Import network session logs
+                const sessionResponse = await fetch('/api/sessions/import_phone', { method: 'POST' });
+                if (!sessionResponse.ok) {
+                    throw new Error(`Server responded ${sessionResponse.status}`);
                 }
+                const sessionResult = await sessionResponse.json();
 
-                const result = await response.json();
+                // Import CB logs
+                const cbResponse = await fetch('/api/cb/import_phone', { method: 'POST' });
+                const cbResult = await cbResponse.json();
+
+                // Combine results
                 const parts = [];
-                if (result.message) parts.push(result.message);
-                if (result.imported?.length) parts.push(`Imported: ${result.imported.join(', ')}`);
-                if (result.skipped_existing?.length) parts.push(`Skipped (already present): ${result.skipped_existing.join(', ')}`);
-                if (result.failed?.length) parts.push(`Failed: ${result.failed.join(', ')}`);
+
+                // Session logs
+                if (sessionResult.message) parts.push(`Network Sessions: ${sessionResult.message}`);
+                if (sessionResult.imported?.length) parts.push(`  ✅ Imported: ${sessionResult.imported.join(', ')}`);
+                if (sessionResult.skipped_existing?.length) parts.push(`  ⏭️ Skipped: ${sessionResult.skipped_existing.join(', ')}`);
+                if (sessionResult.failed?.length) parts.push(`  ❌ Failed: ${sessionResult.failed.join(', ')}`);
+
+                // CB logs
+                if (cbResult.message) parts.push(`\nCB Messages: ${cbResult.message}`);
+                if (cbResult.imported?.length) parts.push(`  ✅ Imported: ${cbResult.imported.join(', ')}`);
+                if (cbResult.skipped_existing?.length) parts.push(`  ⏭️ Skipped: ${cbResult.skipped_existing.join(', ')}`);
+                if (cbResult.failed?.length) parts.push(`  ❌ Failed: ${cbResult.failed.join(', ')}`);
 
                 alert(parts.join('\n') || 'Import finished');
                 loadSessions();
@@ -678,7 +692,7 @@
             } finally {
                 if (btn) {
                     btn.disabled = false;
-                    btn.textContent = originalText || '📲 Import from phone';
+                    btn.textContent = originalText || '📲 Import from Phone';
                 }
             }
         }
@@ -686,20 +700,21 @@
         async function importLocalFiles(files) {
             if (!files || files.length === 0) return;
 
-            const imported = [];
+            const importedSessions = [];
+            const importedCB = [];
             const skipped = [];
             const failed = [];
 
             for (const file of files) {
                 try {
-                    // Validate file extension
-                    if (!file.name.endsWith('.jsonl')) {
-                        failed.push(`${file.name} (not a .jsonl file)`);
+                    // Determine file type
+                    const isSessionLog = file.name.endsWith('.jsonl');
+                    const isCBLog = file.name.endsWith('.json') && !file.name.endsWith('.jsonl');
+
+                    if (!isSessionLog && !isCBLog) {
+                        failed.push(`${file.name} (must be .jsonl or .json)`);
                         continue;
                     }
-
-                    // Extract session ID from filename (remove .jsonl extension)
-                    const sessionId = file.name.replace('.jsonl', '');
 
                     // Read file content
                     const content = await file.text();
@@ -710,35 +725,74 @@
                         continue;
                     }
 
-                    // Validate JSON format (check first line)
-                    const firstLine = content.trim().split('\n')[0];
-                    try {
-                        JSON.parse(firstLine);
-                    } catch (e) {
-                        failed.push(`${file.name} (invalid JSON format)`);
-                        continue;
-                    }
+                    if (isSessionLog) {
+                        // Network session log (.jsonl)
+                        const sessionId = file.name.replace('.jsonl', '');
 
-                    // Upload to server
-                    const response = await fetch('/api/sessions/import_local', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            session_id: sessionId,
-                            content: content
-                        })
-                    });
-
-                    const result = await response.json();
-
-                    if (response.ok && result.success) {
-                        if (result.skipped) {
-                            skipped.push(sessionId);
-                        } else {
-                            imported.push(sessionId);
+                        // Validate JSON format (check first line)
+                        const firstLine = content.trim().split('\n')[0];
+                        try {
+                            JSON.parse(firstLine);
+                        } catch (e) {
+                            failed.push(`${file.name} (invalid JSONL format)`);
+                            continue;
                         }
-                    } else {
-                        failed.push(`${file.name} (${result.error || 'server error'})`);
+
+                        // Upload to server
+                        const response = await fetch('/api/sessions/import_local', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                session_id: sessionId,
+                                content: content
+                            })
+                        });
+
+                        const result = await response.json();
+
+                        if (response.ok && result.success) {
+                            if (result.skipped) {
+                                skipped.push(sessionId);
+                            } else {
+                                importedSessions.push(sessionId);
+                            }
+                        } else {
+                            failed.push(`${file.name} (${result.error || 'server error'})`);
+                        }
+
+                    } else if (isCBLog) {
+                        // CB message log (.json)
+                        const msgId = file.name.replace('.json', '');
+
+                        // Validate JSON format
+                        try {
+                            JSON.parse(content);
+                        } catch (e) {
+                            failed.push(`${file.name} (invalid JSON format)`);
+                            continue;
+                        }
+
+                        // Upload to server
+                        const response = await fetch('/api/cb/import_local', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                msg_id: msgId,
+                                content: content
+                            })
+                        });
+
+                        const result = await response.json();
+
+                        if (response.ok && result.success) {
+                            if (result.skipped) {
+                                skipped.push(msgId);
+                            } else {
+                                importedCB.push(msgId);
+                            }
+                        } else {
+                            failed.push(`${file.name} (${result.error || 'server error'})`);
+                        }
                     }
 
                 } catch (error) {
@@ -751,14 +805,15 @@
 
             // Show results
             const parts = [];
-            if (imported.length) parts.push(`✅ Imported: ${imported.join(', ')}`);
+            if (importedSessions.length) parts.push(`✅ Network Sessions Imported: ${importedSessions.join(', ')}`);
+            if (importedCB.length) parts.push(`✅ CB Messages Imported: ${importedCB.join(', ')}`);
             if (skipped.length) parts.push(`⏭️ Skipped (already exists): ${skipped.join(', ')}`);
-            if (failed.length) parts.push(`❌ Failed: ${failed.join(', ')}`);
+            if (failed.length) parts.push(`❌ Failed:\n${failed.join('\n')}`);
 
             alert(parts.join('\n\n') || 'No files imported');
 
             // Refresh sessions list if any were imported
-            if (imported.length > 0) {
+            if (importedSessions.length > 0) {
                 loadSessions();
             }
         }

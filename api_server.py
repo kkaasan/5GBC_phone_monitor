@@ -188,6 +188,9 @@ class APIHandler(SimpleHTTPRequestHandler):
             elif path_parts[1] == 'cb' and path_parts[2] == 'import_phone':
                 self.handle_cb_import_phone()
                 return
+            elif path_parts[1] == 'cb' and path_parts[2] == 'import_local':
+                self.handle_cb_import_local()
+                return
 
         self.send_error(404, "Not found")
 
@@ -712,6 +715,82 @@ class APIHandler(SimpleHTTPRequestHandler):
                     'success': False,
                     'error': 'Invalid file format - no valid data found'
                 }).encode('utf-8'))
+
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'success': False,
+                'error': str(e)
+            }).encode('utf-8'))
+
+    def handle_cb_import_local(self):
+        """Import CB message log from local upload"""
+        try:
+            # Read request body
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body.decode('utf-8'))
+
+            msg_id = data.get('msg_id')
+            content = data.get('content')
+
+            if not msg_id or not content:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': 'Missing msg_id or content'
+                }).encode('utf-8'))
+                return
+
+            # Ensure directories exist
+            CB_LOGS_DIR.mkdir(exist_ok=True)
+            DATA_DIR.mkdir(exist_ok=True)
+
+            local_path = CB_LOGS_DIR / f"{msg_id}.json"
+
+            # Check if file already exists
+            if local_path.exists():
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': True,
+                    'skipped': True,
+                    'message': 'CB message already exists'
+                }).encode('utf-8'))
+                return
+
+            # Parse and validate CB message
+            try:
+                cb_record = json.loads(content)
+            except json.JSONDecodeError:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': 'Invalid JSON format'
+                }).encode('utf-8'))
+                return
+
+            # Write the file
+            local_path.write_text(content)
+
+            # Update CB index
+            update_cb_index_entry(msg_id, cb_record)
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'success': True,
+                'skipped': False,
+                'message': 'CB message imported successfully'
+            }).encode('utf-8'))
 
         except Exception as e:
             self.send_response(500)
