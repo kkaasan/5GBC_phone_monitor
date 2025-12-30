@@ -1093,10 +1093,9 @@
                 map.removeLayer(routeLayer);
             }
 
-            // Fit bounds (only on initial load)
-            if (!map._hasFitted && routeCoords.length > 0) {
-                map.fitBounds(L.latLngBounds(routeCoords));
-                map._hasFitted = true;
+            // Fit bounds to show all data points
+            if (routeCoords.length > 0) {
+                map.fitBounds(L.latLngBounds(routeCoords), { padding: [50, 50] });
             }
             } catch (vizError) {
                 console.error('Visualization error:', vizError);
