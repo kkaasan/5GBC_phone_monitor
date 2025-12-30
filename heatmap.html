@@ -568,6 +568,9 @@
             if (!sessionIds || sessionIds.length === 0) return;
             const suppressAlerts = options.suppressAlerts || false;
 
+            console.time('Total load time');
+            console.log('Loading sessions:', sessionIds);
+
             // Show loading indicator
             document.getElementById('sessionStats').innerHTML = '<p>⏳ Loading session data...</p>';
 
@@ -575,6 +578,7 @@
             currentData = [];
 
             try {
+                console.time('Fetch sessions');
                 // Load all selected sessions in parallel
                 const promises = sessionIds.map(async sessionId => {
                     try {
@@ -590,9 +594,10 @@
                             return [];
                         }
 
-                        return text.split('\n')
-                            .filter(line => line)
-                            .map(line => {
+                        const lines = text.split('\n').filter(line => line);
+                        console.log(`Session ${sessionId}: ${lines.length} lines`);
+
+                        return lines.map(line => {
                                 try {
                                     const data = JSON.parse(line);
                                     data.sessionId = sessionId;  // Add session ID to each data point
@@ -610,11 +615,15 @@
                 });
 
                 const allSessionData = await Promise.all(promises);
+                console.timeEnd('Fetch sessions');
 
+                console.time('Combine and sort data');
                 // Combine all data and sort by timestamp
                 currentData = allSessionData.flat().sort((a, b) =>
                     new Date(a.timestamp) - new Date(b.timestamp)
                 );
+                console.timeEnd('Combine and sort data');
+                console.log(`Total data points: ${currentData.length}`);
 
                 if (currentData.length === 0) {
                     if (!suppressAlerts) {
@@ -623,6 +632,7 @@
                     filteredData = [];
                     updateVisualization();
                     updateStats();
+                    console.timeEnd('Total load time');
                     return false;
                 }
 
@@ -634,8 +644,15 @@
                     document.getElementById('dateFilter').value = firstDate.toISOString().split('T')[0];
                 }
 
+                console.time('Update visualization');
                 updateVisualization();
+                console.timeEnd('Update visualization');
+
+                console.time('Update stats');
                 updateStats();
+                console.timeEnd('Update stats');
+
+                console.timeEnd('Total load time');
                 return true;
 
             } catch (error) {
@@ -687,14 +704,20 @@
         // Update visualization
         function updateVisualization() {
             try {
+                console.log('updateVisualization called');
+                console.time('Clear layers');
                 // Clear existing layers
                 markersLayer.clearLayers();
                 routeLayer.clearLayers();
                 triangulationLayer.clearLayers();
+                console.timeEnd('Clear layers');
 
                 if (filteredData.length === 0) return;
 
+                console.time('Get transmitter filtered data');
                 const displayData = getTransmitterFilteredData(filteredData, transmittersCache);
+                console.timeEnd('Get transmitter filtered data');
+                console.log(`Display data points: ${displayData.length}`);
 
                 if (displayData.length === 0) {
                     document.getElementById('legend').style.display = 'none';
@@ -852,9 +875,12 @@
             };
 
             // Call async marker creation
+            console.time('Create markers');
             createMarkers(displayData);
+            console.timeEnd('Create markers');
 
             // Create route
+            console.time('Create route');
             const routeCoords = displayData
                 .filter(p => p.location.latitude && p.location.longitude)
                 .map(p => [parseFloat(p.location.latitude), parseFloat(p.location.longitude)]);
@@ -868,9 +894,11 @@
                 });
                 routeLayer.addLayer(routeLine);
             }
+            console.timeEnd('Create route');
 
             // Create transmitter-aware RF propagation heatmap
             const createRFHeatmap = async (pointsToRender) => {
+                console.time('Create RF heatmap');
                 const transmitters = transmittersCache.length ? transmittersCache : await loadTransmitters();
 
                 const pointsWithSignal = pointsToRender
@@ -893,7 +921,9 @@
 
                 if (pointsWithSignal.length >= 3) {
                     try {
+                        console.time('createTransmitterAwareHeatmap');
                         createTransmitterAwareHeatmap(pointsWithSignal, transmitters);
+                        console.timeEnd('createTransmitterAwareHeatmap');
                         if (showHeatmap) {
                             triangulationLayer.addTo(map);
                         }
@@ -902,15 +932,18 @@
                         console.error('Error creating heatmap:', error);
                     }
                 }
+                console.timeEnd('Create RF heatmap');
             };
 
             // Call async heatmap creation
+            console.time('Call heatmap creation');
             if (showHeatmap) {
                 createRFHeatmap(displayData);
             } else {
                 triangulationLayer.clearLayers();
                 map.removeLayer(triangulationLayer);
             }
+            console.timeEnd('Call heatmap creation');
 
             // Function to create transmitter-aware RF propagation heatmap
             function createTransmitterAwareHeatmap(points, transmitters) {
