@@ -516,13 +516,19 @@
                     // Extract device name from session_id (format: {deviceName}_{YYYYMMDD}_{HHMMSS} or legacy {YYYYMMDD}_{HHMMSS})
                     const parts = session.session_id.split('_');
                     let deviceName = '';
-                    if (parts.length >= 3) {
-                        // Has device name prefix
-                        const firstPart = parts[0];
-                        // Check if first part is a date (8 digits) or device name
-                        if (!/^\d{8}$/.test(firstPart)) {
-                            deviceName = `[${firstPart}] `;
+
+                    // Find the date part (8 digits) - everything before it is the device name
+                    let dateIndex = -1;
+                    for (let i = 0; i < parts.length; i++) {
+                        if (/^\d{8}$/.test(parts[i])) {
+                            dateIndex = i;
+                            break;
                         }
+                    }
+
+                    // If we found a date, everything before it is the device name
+                    if (dateIndex > 0) {
+                        deviceName = `[${parts.slice(0, dateIndex).join('_')}] `;
                     }
 
                     const option = document.createElement('option');
