@@ -2,7 +2,7 @@
 
 Professional 5G Broadcast signal analysis and coverage mapping tool for real-time RSRP/RSRQ monitoring with GPS correlation and modulation threshold analysis.
 
-![Version](https://img.shields.io/badge/version-1.3.1-blue)
+![Version](https://img.shields.io/badge/version-1.3.2-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
 ![Android](https://img.shields.io/badge/android-8.0+-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -63,6 +63,11 @@ Professional 5G Broadcast signal analysis and coverage mapping tool for real-tim
 - **Live Cell View** - Real-time display of signal metrics and GPS status
 - **Automatic File Export** - Saves logs to device storage in JSONL format
 - **Session Management** - Compatible with desktop heatmap viewer
+- **📱 Multi-Phone Support (NEW in v1.3.2!)** - Device name prefix for log separation
+  - Automatically uses device name from phone settings
+  - Network logs: `{deviceName}_{timestamp}.jsonl`
+  - CB logs: `{deviceName}_{timestamp}_{serialNumber}.json`
+  - No conflicts when using multiple phones
 - **🚨 CB Logging (NEW in v1.3!)** - Automatic Cell Broadcast message capture on device
   - Logcat-based CB monitoring (requires READ_LOGS permission via ADB)
   - BroadcastReceiver for direct CB message capture
@@ -218,6 +223,20 @@ Open your browser and navigate to:
 - **Coverage Heatmap**: http://localhost:8888/heatmap.html
 - **🚨 Emergency Warnings**: http://localhost:8888/emergency_warnings.html
 - **Sessions & Export**: http://localhost:8888/sessions.html
+
+### Multi-Phone Setup (v1.3.2)
+
+When using multiple phones, set unique device names to separate logs:
+
+**On each Android phone:**
+1. Go to: **Settings → About Phone → Device name**
+2. Set unique names like: `Pixel3`, `Phone1`, `TestDevice`
+
+**Result:**
+- Network logs: `pixel3_20251230_073318.jsonl`
+- CB logs: `pixel3_20251029_132113_3312.json`
+- No filename conflicts when importing from multiple devices
+- Easy identification of which phone created which logs
 
 ## 📊 Web Interface
 
@@ -658,6 +677,10 @@ POST /api/cb/import_phone         - Import CB logs from Android app via ADB (NEW
 - ✅ Live signal and GPS display
 - ✅ Compatible JSONL log format
 - ✅ 30-second capture interval
+- ✅ **Multi-phone support** (v1.3.2 NEW!)
+  - Device name prefix for log files
+  - No conflicts between multiple phones
+  - Auto-detected from device settings
 - ✅ **Cell Broadcast logging** (v1.3 NEW!)
   - Logcat-based CB message capture
   - GPS-correlated emergency alerts
@@ -715,18 +738,30 @@ MIT License - Use freely for testing and analysis purposes.
 
 ---
 
-**Version**: 1.3.1
+**Version**: 1.3.2
 **Created**: December 2025
 **Purpose**: Professional 5G Broadcast signal monitoring, coverage analysis, and emergency alert system testing
 **Tech Stack**: Python 3, Leaflet.js, Android ADB, Kotlin/Android, JSONL storage
 
-**What's New in v1.3.1:**
+**What's New in v1.3.2:**
+- 📱 **Multi-Phone Support** - Device name prefix for log files
+  - Network logs: `{deviceName}_{timestamp}.jsonl` (e.g., `pixel3_20251230_073318.jsonl`)
+  - CB logs: `{deviceName}_{timestamp}_{serialNumber}.json` (e.g., `pixel3_20251029_132113_3312.json`)
+  - Automatically uses device name from Settings → About Phone → Device name
+  - No filename conflicts when using multiple phones
+  - Easy identification of which phone created which logs
+- 🔧 **Session Date Parsing Fix** - Updated web interface to handle device name prefixes
+  - Sessions page now correctly displays dates for prefixed session IDs
+  - Backward compatible with old format
+
+**Previous Updates (v1.3.1):**
 - 🐛 **GPS Age Fix** - Fixed GPS age display using monotonic clock (elapsedRealtimeNanos) instead of wall clock
   - Resolves issue where GPS showed stale age (e.g., "~141s ago") while coordinates were updating
   - Age display now consistent with actual location freshness
 - 📄 **Log File Display** - Added current log file name display in Android app
-  - Shows active session filename (e.g., "20251229_143022.jsonl") above log entries
+  - Shows active session filename (e.g., "pixel3_20251229_143022.jsonl") above log entries
   - Helps users identify which log file is being written
+- 🗺️ **Heatmap Panning Fix** - Heatmap now updates when panning the map, not just zooming
 
 **Previous Updates (v1.3):**
 - 🚨 **Cell Broadcast Emergency Warnings** - Real-time CB message monitoring via ADB logcat (desktop) and on-device capture (Android app)
