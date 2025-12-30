@@ -937,13 +937,15 @@
 
             // Call async heatmap creation
             console.time('Call heatmap creation');
-            if (showHeatmap) {
-                createRFHeatmap(displayData);
-            } else {
+            // TEMPORARILY DISABLED FOR DEBUGGING
+            // if (showHeatmap) {
+            //     createRFHeatmap(displayData);
+            // } else {
                 triangulationLayer.clearLayers();
                 map.removeLayer(triangulationLayer);
-            }
+            // }
             console.timeEnd('Call heatmap creation');
+            console.log('Heatmap creation SKIPPED for debugging');
 
             // Function to create transmitter-aware RF propagation heatmap
             function createTransmitterAwareHeatmap(points, transmitters) {
