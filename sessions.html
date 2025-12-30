@@ -356,7 +356,9 @@
                     <button class="select-btn" onclick="clearSelection()">✕ Clear</button>
                     <button class="bulk-btn export" onclick="exportSelected()">📥 Export Selected as CSV</button>
                     <button class="bulk-btn delete" onclick="deleteSelected()">🗑️ Delete Selected</button>
-                    <button class="refresh-btn import-btn" id="importBtn" onclick="importFromPhone()">📲 Import from phone</button>
+                    <button class="refresh-btn import-btn" id="importBtn" onclick="importFromPhone()">📲 Import from Phone</button>
+                    <button class="refresh-btn import-btn" onclick="document.getElementById('fileInput').click()">📁 Import Log Files</button>
+                    <input type="file" id="fileInput" accept=".jsonl" multiple style="display: none;" onchange="importLocalFiles(this.files)">
                     <button class="refresh-btn" onclick="loadSessions()">🔄 Refresh</button>
                 </div>
             </div>
@@ -678,6 +680,86 @@
                     btn.disabled = false;
                     btn.textContent = originalText || '📲 Import from phone';
                 }
+            }
+        }
+
+        async function importLocalFiles(files) {
+            if (!files || files.length === 0) return;
+
+            const imported = [];
+            const skipped = [];
+            const failed = [];
+
+            for (const file of files) {
+                try {
+                    // Validate file extension
+                    if (!file.name.endsWith('.jsonl')) {
+                        failed.push(`${file.name} (not a .jsonl file)`);
+                        continue;
+                    }
+
+                    // Extract session ID from filename (remove .jsonl extension)
+                    const sessionId = file.name.replace('.jsonl', '');
+
+                    // Read file content
+                    const content = await file.text();
+
+                    // Validate it's not empty
+                    if (!content.trim()) {
+                        failed.push(`${file.name} (empty file)`);
+                        continue;
+                    }
+
+                    // Validate JSON format (check first line)
+                    const firstLine = content.trim().split('\n')[0];
+                    try {
+                        JSON.parse(firstLine);
+                    } catch (e) {
+                        failed.push(`${file.name} (invalid JSON format)`);
+                        continue;
+                    }
+
+                    // Upload to server
+                    const response = await fetch('/api/sessions/import_local', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            session_id: sessionId,
+                            content: content
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        if (result.skipped) {
+                            skipped.push(sessionId);
+                        } else {
+                            imported.push(sessionId);
+                        }
+                    } else {
+                        failed.push(`${file.name} (${result.error || 'server error'})`);
+                    }
+
+                } catch (error) {
+                    failed.push(`${file.name} (${error.message})`);
+                }
+            }
+
+            // Reset file input
+            document.getElementById('fileInput').value = '';
+
+            // Show results
+            const parts = [];
+            if (imported.length) parts.push(`✅ Imported: ${imported.join(', ')}`);
+            if (skipped.length) parts.push(`⏭️ Skipped (already exists): ${skipped.join(', ')}`);
+            if (failed.length) parts.push(`❌ Failed: ${failed.join(', ')}`);
+
+            alert(parts.join('\n\n') || 'No files imported');
+
+            // Refresh sessions list if any were imported
+            if (imported.length > 0) {
+                loadSessions();
             }
         }
 

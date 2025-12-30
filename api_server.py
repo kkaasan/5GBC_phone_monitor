@@ -182,6 +182,9 @@ class APIHandler(SimpleHTTPRequestHandler):
             elif path_parts[1] == 'sessions' and path_parts[2] == 'import_phone':
                 self.handle_sessions_import_phone()
                 return
+            elif path_parts[1] == 'sessions' and path_parts[2] == 'import_local':
+                self.handle_sessions_import_local()
+                return
             elif path_parts[1] == 'cb' and path_parts[2] == 'import_phone':
                 self.handle_cb_import_phone()
                 return
@@ -644,6 +647,80 @@ class APIHandler(SimpleHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(json.dumps(response).encode('utf-8'))
+
+    def handle_sessions_import_local(self):
+        """Import log files from local uploads"""
+        try:
+            # Read request body
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            data = json.loads(body.decode('utf-8'))
+
+            session_id = data.get('session_id')
+            content = data.get('content')
+
+            if not session_id or not content:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': 'Missing session_id or content'
+                }).encode('utf-8'))
+                return
+
+            # Ensure directories exist
+            LOGS_DIR.mkdir(exist_ok=True)
+            DATA_DIR.mkdir(exist_ok=True)
+
+            local_path = LOGS_DIR / f"{session_id}.jsonl"
+
+            # Check if file already exists
+            if local_path.exists():
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': True,
+                    'skipped': True,
+                    'message': 'File already exists'
+                }).encode('utf-8'))
+                return
+
+            # Write the file
+            local_path.write_text(content)
+
+            # Build and update metadata
+            metadata = build_session_metadata(local_path, session_id)
+            if metadata:
+                update_data_index(metadata)
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': True,
+                    'skipped': False,
+                    'message': 'File imported successfully'
+                }).encode('utf-8'))
+            else:
+                # Failed to parse - delete the file
+                local_path.unlink()
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    'success': False,
+                    'error': 'Invalid file format - no valid data found'
+                }).encode('utf-8'))
+
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'success': False,
+                'error': str(e)
+            }).encode('utf-8'))
 
     def handle_cb_import_phone(self):
         """Pull CB log files from phone storage and merge with existing logs"""
