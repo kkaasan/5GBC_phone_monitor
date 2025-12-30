@@ -532,12 +532,13 @@
                 if (requestedSession && sessions[requestedSession]) {
                     // Load the requested session from URL
                     select.value = requestedSession;
-                    loadSessions([requestedSession]);
+                    // Load in background after dropdown is populated
+                    setTimeout(() => loadSessions([requestedSession]), 0);
                 } else if (sortedSessions.length > 0) {
-                    // Auto-select first session but don't auto-load (user can click to load)
+                    // Auto-select first session
                     select.value = sortedSessions[0].session_id;
-                    // Optionally auto-load just the first one
-                    loadSessions([sortedSessions[0].session_id], { suppressAlerts: true });
+                    // Auto-load in background after dropdown is populated
+                    setTimeout(() => loadSessions([sortedSessions[0].session_id], { suppressAlerts: true }), 0);
                 }
 
             } catch (error) {
