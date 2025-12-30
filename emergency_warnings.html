@@ -522,7 +522,7 @@
                     <div class="message-title">
                         <h3>${escapeHtml(msg.heading)}</h3>
                         <div class="message-meta">
-                            ${timestamp.toLocaleString()} • Language: ${msg.language} • Category: ${msg.serviceCategory}
+                            ${timestamp.toLocaleString('en-GB', { hour12: false })} • Language: ${msg.language} • Category: ${msg.serviceCategory}
                         </div>
                     </div>
                     <div style="display: flex; align-items: center;">
@@ -638,7 +638,7 @@
                             <h4>⏰ Timing</h4>
                             <div class="metadata-item">
                                 <span class="metadata-label">Received:</span>
-                                <span class="metadata-value">${new Date(message.timestamp).toLocaleString()}</span>
+                                <span class="metadata-value">${new Date(message.timestamp).toLocaleString('en-GB', { hour12: false })}</span>
                             </div>
                             <div class="metadata-item">
                                 <span class="metadata-label">Received Time (ms):</span>
@@ -779,7 +779,7 @@
                     <div style="min-width: 250px;">
                         <h4 style="margin: 0 0 10px 0; color: #ef4444;">Alert Area</h4>
                         <p style="margin: 5px 0;"><strong>Message:</strong> ${escapeHtml(messageData.body.split('\n')[0])}</p>
-                        <p style="margin: 5px 0;"><strong>Time:</strong> ${new Date(messageData.timestamp).toLocaleString()}</p>
+                        <p style="margin: 5px 0;"><strong>Time:</strong> ${new Date(messageData.timestamp).toLocaleString('en-GB', { hour12: false })}</p>
                         <p style="margin: 5px 0;"><strong>Priority:</strong> ${messageData.priority}</p>
                     </div>
                 `);
@@ -794,7 +794,7 @@
                 const popupContent = `
                     <div style="min-width: 250px;">
                         <h4 style="margin: 0 0 10px 0; color: #ef4444;">Device Location</h4>
-                        <p style="margin: 5px 0;"><strong>Time:</strong> ${new Date(messageData.timestamp).toLocaleString()}</p>
+                        <p style="margin: 5px 0;"><strong>Time:</strong> ${new Date(messageData.timestamp).toLocaleString('en-GB', { hour12: false })}</p>
                         <p style="margin: 5px 0;"><strong>Priority:</strong> ${messageData.priority}</p>
                         <p style="margin: 5px 0;"><strong>Coordinates:</strong> ${lat}, ${lon}</p>
                         <div style="background: #f9fafb; padding: 10px; border-radius: 6px; margin-top: 10px;">
@@ -862,7 +862,7 @@
                         }).addTo(map).bindPopup(`
                             <div style="min-width: 250px;">
                                 <h4 style="margin: 0 0 10px 0;">${escapeHtml(msg.heading)}</h4>
-                                <p style="margin: 5px 0;"><strong>Time:</strong> ${new Date(message.timestamp).toLocaleString()}</p>
+                                <p style="margin: 5px 0;"><strong>Time:</strong> ${new Date(message.timestamp).toLocaleString('en-GB', { hour12: false })}</p>
                                 <p style="margin: 5px 0;"><strong>Priority:</strong> ${message.priority}</p>
                                 <p style="margin: 5px 0;"><strong>Category:</strong> ${message.serviceCategory}</p>
                             </div>
@@ -884,7 +884,7 @@
                                     <p style="margin: 5px 0; white-space: pre-wrap;">${escapeHtml(message.body)}</p>
                                 </div>
                                 <div style="margin-top: 10px; font-size: 13px;">
-                                    <p style="margin: 3px 0;"><strong>Time:</strong> ${new Date(message.timestamp).toLocaleString()}</p>
+                                    <p style="margin: 3px 0;"><strong>Time:</strong> ${new Date(message.timestamp).toLocaleString('en-GB', { hour12: false })}</p>
                                     <p style="margin: 3px 0;"><strong>Priority:</strong> ${message.priority}</p>
                                     <p style="margin: 3px 0;"><strong>Category:</strong> ${message.serviceCategory}</p>
                                     <p style="margin: 3px 0;"><strong>Language:</strong> ${message.language}</p>

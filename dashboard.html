@@ -710,7 +710,7 @@
                 if (dataAge > 120) {
                     // Data is stale - monitoring likely stopped
                     document.getElementById('status').textContent = `⚠️ Monitoring Stopped (${Math.floor(dataAge / 60)} min ago)`;
-                    document.getElementById('lastUpdate').textContent = `Last data: ${dataTimestamp.toLocaleTimeString()}`;
+                    document.getElementById('lastUpdate').textContent = `Last data: ${dataTimestamp.toLocaleTimeString('en-GB', { hour12: false })}`;
                     return; // Don't update gauges with stale data
                 }
 
@@ -754,7 +754,7 @@
                 }
 
                 // Update timestamp
-                document.getElementById('lastUpdate').textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+                document.getElementById('lastUpdate').textContent = `Updated: ${new Date().toLocaleTimeString('en-GB', { hour12: false })}`;
 
             } catch (error) {
                 console.error('Error fetching status:', error);

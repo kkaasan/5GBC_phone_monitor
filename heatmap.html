@@ -537,7 +537,7 @@
 
                     const option = document.createElement('option');
                     option.value = session.session_id;
-                    option.textContent = `${deviceName}${startDate.toLocaleDateString()} ${startDate.toLocaleTimeString()} (${session.count} pts)`;
+                    option.textContent = `${deviceName}${startDate.toLocaleDateString()} ${startDate.toLocaleTimeString('en-GB', { hour12: false })} (${session.count} pts)`;
                     select.appendChild(option);
                 });
 
@@ -841,7 +841,7 @@
                         fillOpacity: 0.9
                     });
 
-                    const time = new Date(point.timestamp).toLocaleTimeString();
+                    const time = new Date(point.timestamp).toLocaleTimeString('en-GB', { hour12: false });
                     const date = new Date(point.timestamp).toLocaleDateString();
                     let popupContent = `<div style="font-size: 13px; line-height: 1.6;">`;
                     popupContent += `<b style="font-size: 14px;">📍 Point ${idx + 1}</b><br>`;
