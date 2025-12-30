@@ -513,9 +513,21 @@
                     const startDate = new Date(session.start_time);
                     const endDate = new Date(session.end_time);
 
+                    // Extract device name from session_id (format: {deviceName}_{YYYYMMDD}_{HHMMSS} or legacy {YYYYMMDD}_{HHMMSS})
+                    const parts = session.session_id.split('_');
+                    let deviceName = '';
+                    if (parts.length >= 3) {
+                        // Has device name prefix
+                        const firstPart = parts[0];
+                        // Check if first part is a date (8 digits) or device name
+                        if (!/^\d{8}$/.test(firstPart)) {
+                            deviceName = `[${firstPart}] `;
+                        }
+                    }
+
                     const option = document.createElement('option');
                     option.value = session.session_id;
-                    option.textContent = `${startDate.toLocaleDateString()} ${startDate.toLocaleTimeString()} (${session.count} pts)`;
+                    option.textContent = `${deviceName}${startDate.toLocaleDateString()} ${startDate.toLocaleTimeString()} (${session.count} pts)`;
                     select.appendChild(option);
                 });
 
@@ -535,8 +547,7 @@
                     // Load in background after dropdown is populated
                     setTimeout(() => loadSessions([requestedSession]), 0);
                 } else if (sortedSessions.length > 0) {
-                    // Just select first session, don't auto-load (user can click to load)
-                    select.value = sortedSessions[0].session_id;
+                    // Don't pre-select any session - user picks which one to load
                     document.getElementById('sessionStats').innerHTML = '<p>👆 Select session(s) above to load data</p>';
                 }
 
