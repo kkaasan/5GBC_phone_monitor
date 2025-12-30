@@ -503,13 +503,26 @@
         }
 
         function formatSessionDate(sessionId) {
-            // Format: YYYYMMDD_HHMMSS
-            const year = sessionId.substr(0, 4);
-            const month = sessionId.substr(4, 2);
-            const day = sessionId.substr(6, 2);
-            const hour = sessionId.substr(9, 2);
-            const minute = sessionId.substr(11, 2);
-            const second = sessionId.substr(13, 2);
+            // Format: {deviceName}_YYYYMMDD_HHMMSS or YYYYMMDD_HHMMSS (legacy)
+            // Extract timestamp portion (last two underscore-separated parts)
+            const parts = sessionId.split('_');
+            let datePart, timePart;
+
+            if (parts.length >= 2) {
+                // New format with device name: devicename_YYYYMMDD_HHMMSS
+                timePart = parts[parts.length - 1];
+                datePart = parts[parts.length - 2];
+            } else {
+                // Should not happen, but fallback
+                return 'Invalid Date';
+            }
+
+            const year = datePart.substr(0, 4);
+            const month = datePart.substr(4, 2);
+            const day = datePart.substr(6, 2);
+            const hour = timePart.substr(0, 2);
+            const minute = timePart.substr(2, 2);
+            const second = timePart.substr(4, 2);
 
             const date = new Date(year, month - 1, day, hour, minute, second);
             return date.toLocaleString('en-US', {
