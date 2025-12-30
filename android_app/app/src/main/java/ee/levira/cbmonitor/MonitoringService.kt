@@ -46,6 +46,7 @@ class MonitoringService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
 
     private var sessionId: String? = null
+    private var deviceName: String? = null
     private var lastLocation: Location? = null
     private var locationManager: LocationManager? = null
     private var locationListener: LocationListener? = null
@@ -66,9 +67,8 @@ class MonitoringService : Service() {
         locationManager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager
         ensureLocationUpdates()
 
-        // Start CB logging
+        // Start CB logging (will get device name from onStartCommand)
         cbLogger = LogcatCBLogger(this)
-        cbLogger?.startLogging()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -79,6 +79,11 @@ class MonitoringService : Service() {
         if (sessionId == null) {
             sessionId = intent?.getStringExtra("session_id")
                 ?: SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            deviceName = intent?.getStringExtra("device_name")
+        }
+        // Start CB logging with device name
+        if (cbLogger != null && deviceName != null) {
+            cbLogger?.startLogging(deviceName!!)
         }
         startMonitoringLoop()
         return START_STICKY

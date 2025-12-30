@@ -31,14 +31,16 @@ class LogcatCBLogger(private val context: Context) {
     private var logcatJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO)
     private var isRunning = false
+    private var deviceName: String = "phone"
 
-    fun startLogging() {
+    fun startLogging(deviceName: String = "phone") {
         if (isRunning) {
             Log.d(TAG, "CB logcat logging already running")
             return
         }
 
-        Log.i(TAG, "Starting CB logcat monitoring...")
+        this.deviceName = deviceName
+        Log.i(TAG, "Starting CB logcat monitoring for device: $deviceName...")
 
         logcatJob = scope.launch {
             try {
@@ -240,8 +242,9 @@ class LogcatCBLogger(private val context: Context) {
                 put("source", cbData.optString("source"))
             }
 
-            // Generate message ID
-            val msgId = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(timestamp) +
+            // Generate message ID with device name prefix
+            val msgId = "${deviceName}_" +
+                    SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(timestamp) +
                     "_${cbData.opt("serialNumber")}"
 
             // Save to file

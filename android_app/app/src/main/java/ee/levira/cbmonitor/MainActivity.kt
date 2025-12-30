@@ -37,6 +37,31 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Get the user-set device name (from Settings -> About Phone -> Device name)
+ * Sanitizes the name for use in filenames
+ */
+fun getDeviceName(contentResolver: android.content.ContentResolver): String {
+    return try {
+        // Get device name set by user (Android 7.1+)
+        val deviceName = Settings.Global.getString(contentResolver, Settings.Global.DEVICE_NAME)
+            ?: Settings.Secure.getString(contentResolver, "bluetooth_name")
+            ?: Build.MODEL
+            ?: "unknown"
+
+        // Sanitize for filename: remove spaces, special chars, limit length
+        deviceName
+            .replace(Regex("[^a-zA-Z0-9_-]"), "_")
+            .replace(Regex("_{2,}"), "_")
+            .trim('_')
+            .take(20)
+            .lowercase(Locale.US)
+            .ifEmpty { "phone" }
+    } catch (e: Exception) {
+        "phone"
+    }
+}
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
@@ -179,11 +204,14 @@ class MainActivity : AppCompatActivity() {
             // Request battery optimization exemption for reliable background monitoring
             requestBatteryOptimizationExemption()
 
-            val newSessionId = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            val deviceName = getDeviceName(contentResolver)
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            val newSessionId = "${deviceName}_${timestamp}"
             ContextCompat.startForegroundService(
                 this,
                 Intent(this, MonitoringService::class.java).apply {
                     putExtra("session_id", newSessionId)
+                    putExtra("device_name", deviceName)
                 }
             )
             isLogging = true
