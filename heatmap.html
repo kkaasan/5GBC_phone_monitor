@@ -534,14 +534,10 @@
                     select.value = requestedSession;
                     loadSessions([requestedSession]);
                 } else if (sortedSessions.length > 0) {
-                    // Auto-load first available session with data
-                    (async () => {
-                        for (const session of sortedSessions) {
-                            select.value = session.session_id;
-                            const success = await loadSessions([session.session_id], { suppressAlerts: true });
-                            if (success) break;
-                        }
-                    })();
+                    // Auto-select first session but don't auto-load (user can click to load)
+                    select.value = sortedSessions[0].session_id;
+                    // Optionally auto-load just the first one
+                    loadSessions([sortedSessions[0].session_id], { suppressAlerts: true });
                 }
 
             } catch (error) {
@@ -554,6 +550,9 @@
         async function loadSessions(sessionIds, options = {}) {
             if (!sessionIds || sessionIds.length === 0) return;
             const suppressAlerts = options.suppressAlerts || false;
+
+            // Show loading indicator
+            document.getElementById('sessionStats').innerHTML = '<p>⏳ Loading session data...</p>';
 
             currentSessions = sessionIds;
             currentData = [];
@@ -906,7 +905,10 @@
                 const se = bounds.getSouthEast();
 
                 // Create grid for interpolation
-                const gridSize = 50; // 50x50 grid
+                // Use adaptive grid size based on data density
+                const dataPointCount = points.length;
+                const gridSize = dataPointCount < 50 ? 25 :
+                                dataPointCount < 100 ? 35 : 45; // Adaptive grid
                 const latStep = (se.lat - nw.lat) / gridSize;
                 const lonStep = (se.lng - nw.lng) / gridSize;
 
