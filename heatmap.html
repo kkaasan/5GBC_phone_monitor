@@ -370,6 +370,9 @@
 
         // Add zoom and move event listeners to refresh heatmap dynamically
         map.on('zoomend moveend', function() {
+            // Skip if we're in the middle of loading a session (prevents infinite loop with auto-zoom)
+            if (isLoadingSession) return;
+
             if (filteredData.length > 0 && showHeatmap) {
                 updateVisualization();
             }
@@ -399,6 +402,7 @@
         let showHeatmap = true;
         let showRoute = false;
         let showMarkers = true;
+        let isLoadingSession = false; // Flag to prevent infinite loop during auto-zoom
 
         // Load transmitter locations from server
         async function loadTransmitters() {
@@ -567,6 +571,8 @@
         async function loadSessions(sessionIds, options = {}) {
             if (!sessionIds || sessionIds.length === 0) return;
             const suppressAlerts = options.suppressAlerts || false;
+
+            isLoadingSession = true; // Prevent event listener from triggering during load
 
             console.time('Total load time');
             console.log('Loading sessions:', sessionIds);
@@ -937,15 +943,13 @@
 
             // Call async heatmap creation
             console.time('Call heatmap creation');
-            // TEMPORARILY DISABLED FOR DEBUGGING
-            // if (showHeatmap) {
-            //     createRFHeatmap(displayData);
-            // } else {
+            if (showHeatmap) {
+                createRFHeatmap(displayData);
+            } else {
                 triangulationLayer.clearLayers();
                 map.removeLayer(triangulationLayer);
-            // }
+            }
             console.timeEnd('Call heatmap creation');
-            console.log('Heatmap creation SKIPPED for debugging');
 
             // Function to create transmitter-aware RF propagation heatmap
             function createTransmitterAwareHeatmap(points, transmitters) {
@@ -1129,11 +1133,18 @@
             }
 
             // Fit bounds to show all data points
-            if (routeCoords.length > 0) {
+            if (routeCoords.length > 0 && isLoadingSession) {
                 map.fitBounds(L.latLngBounds(routeCoords), { padding: [50, 50] });
+                // Clear loading flag after map animation completes (prevents event listener from re-triggering)
+                setTimeout(() => { isLoadingSession = false; }, 500);
+            } else {
+                // No auto-zoom, clear flag immediately
+                isLoadingSession = false;
             }
+
             } catch (vizError) {
                 console.error('Visualization error:', vizError);
+                isLoadingSession = false;
             }
         }
 
