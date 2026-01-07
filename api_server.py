@@ -824,10 +824,11 @@ class APIHandler(SimpleHTTPRequestHandler):
 
         # Create adaptive grid based on zoom level for optimal performance and detail
         # Base grid size determines the smaller dimension
+        # Higher resolution at country level for better detail
         if zoom <= 8:
-            base_grid_size = 60
-        elif zoom <= 11:
             base_grid_size = 100
+        elif zoom <= 11:
+            base_grid_size = 120
         elif zoom <= 14:
             base_grid_size = 150
         else:
