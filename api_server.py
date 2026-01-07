@@ -957,6 +957,27 @@ class APIHandler(SimpleHTTPRequestHandler):
                 lon = west + j * lon_step
                 total_grid_cells += 1
 
+                # Early exit: Check if cell is beyond all transmitter coverage areas
+                # This avoids expensive processing for cells that are obviously outside coverage
+                within_any_possible_coverage = False
+                for tx_id, params in tx_params.items():
+                    dist_to_tx = self.haversine_distance(params['lat'], params['lon'], lat, lon)
+                    max_possible_distance = max_coverage_distance_per_tx.get(tx_id, 0) + 5.0  # Include gray zone
+                    if dist_to_tx <= max_possible_distance:
+                        within_any_possible_coverage = True
+                        break
+
+                if not within_any_possible_coverage:
+                    # Cell is beyond all coverage areas - mark as no coverage and skip processing
+                    predicted_points.append({
+                        'lat': lat,
+                        'lon': lon,
+                        'rsrp': -200.0,
+                        'rsrq': -50.0,
+                        'source': 'no_coverage'
+                    })
+                    continue
+
                 # Try to interpolate from nearby measurements first
                 nearby_measurements = []
                 nearby_no_signal_measurements = []
