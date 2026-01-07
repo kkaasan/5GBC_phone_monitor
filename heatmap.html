@@ -1143,10 +1143,29 @@
                 const se = bounds.getSouthEast();
 
                 // Create grid for interpolation
-                // Use adaptive grid size based on data density
+                // Use adaptive grid size based on zoom level and data density
+                const zoom = map.getZoom();
                 const dataPointCount = points.length;
-                const gridSize = dataPointCount < 50 ? 60 :
-                                dataPointCount < 100 ? 100 : 150; // Adaptive grid with finer resolution
+
+                // Adaptive grid based on zoom level:
+                // Zoom 5-8 (country): 60 cells
+                // Zoom 9-11 (region): 100 cells
+                // Zoom 12-14 (city): 150 cells
+                // Zoom 15+ (street): 200 cells
+                let gridSize;
+                if (zoom <= 8) {
+                    gridSize = 60;
+                } else if (zoom <= 11) {
+                    gridSize = 100;
+                } else if (zoom <= 14) {
+                    gridSize = 150;
+                } else {
+                    gridSize = 200;
+                }
+
+                // Reduce grid if very few data points to avoid artifacts
+                if (dataPointCount < 50) gridSize = Math.min(gridSize, 60);
+
                 const latStep = (se.lat - nw.lat) / gridSize;
                 const lonStep = (se.lng - nw.lng) / gridSize;
 
@@ -1624,7 +1643,8 @@
                 body: JSON.stringify({
                     transmitters: activeTransmitters,  // Only send active transmitters
                     measurements: measurements,
-                    bounds: map.getBounds()
+                    bounds: map.getBounds(),
+                    zoom: map.getZoom()  // Send zoom level for adaptive grid resolution
                 })
             });
 

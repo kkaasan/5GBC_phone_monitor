@@ -416,9 +416,10 @@ class APIHandler(SimpleHTTPRequestHandler):
             transmitters = data.get('transmitters', [])
             measurements = data.get('measurements', [])
             bounds = data.get('bounds', {})
+            zoom = data.get('zoom', 13)  # Default to zoom 13 if not provided
 
             # Generate prediction
-            prediction_result = self.generate_coverage_prediction(transmitters, measurements, bounds)
+            prediction_result = self.generate_coverage_prediction(transmitters, measurements, bounds, zoom)
 
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
@@ -528,7 +529,7 @@ class APIHandler(SimpleHTTPRequestHandler):
 
         return (min_dist + max_dist) / 2.0
 
-    def generate_coverage_prediction(self, transmitters, measurements, bounds):
+    def generate_coverage_prediction(self, transmitters, measurements, bounds, zoom=13):
         """
         Generate coverage prediction using Okumura-Hata propagation model for DVB-T2
 
@@ -539,12 +540,18 @@ class APIHandler(SimpleHTTPRequestHandler):
         - Diffraction and clutter losses
 
         More accurate than simple log-distance for real-world broadcast coverage.
+
+        Args:
+            transmitters: List of transmitter configurations
+            measurements: List of measurement data points
+            bounds: Map bounds for prediction area
+            zoom: Map zoom level for adaptive grid resolution
         """
         import math
         import numpy as np
         from scipy.optimize import curve_fit
 
-        print(f"[PREDICTION] Starting prediction with {len(transmitters)} transmitters, {len(measurements)} measurements")
+        print(f"[PREDICTION] Starting prediction with {len(transmitters)} transmitters, {len(measurements)} measurements at zoom {zoom}")
 
         # Debug: Print first measurement to see structure
         if measurements:
@@ -812,9 +819,20 @@ class APIHandler(SimpleHTTPRequestHandler):
         print(f"[PREDICTION] Grid bounds based on map view with 20% padding")
         print(f"[PREDICTION] Coverage area: {south:.4f} to {north:.4f} lat, {west:.4f} to {east:.4f} lon")
 
-        # Create high-resolution grid for smooth 360-degree coverage visualization
-        # 150x150 = 22500 points provides finer detail for entire map viewing
-        grid_size = 150
+        # Create adaptive grid based on zoom level for optimal performance and detail
+        # Zoom 5-8 (country): 60x60 = 3,600 cells
+        # Zoom 9-11 (region): 100x100 = 10,000 cells
+        # Zoom 12-14 (city): 150x150 = 22,500 cells
+        # Zoom 15+ (street): 200x200 = 40,000 cells
+        if zoom <= 8:
+            grid_size = 60
+        elif zoom <= 11:
+            grid_size = 100
+        elif zoom <= 14:
+            grid_size = 150
+        else:
+            grid_size = 200
+
         lat_step = (north - south) / grid_size
         lon_step = (east - west) / grid_size
 
