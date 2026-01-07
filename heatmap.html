@@ -379,6 +379,99 @@
             maxZoom: 19
         }).addTo(map);
 
+        // Create custom canvas layer for high-performance heatmap rendering
+        L.CanvasHeatmapLayer = L.Layer.extend({
+            initialize: function(options) {
+                L.setOptions(this, options);
+                this._gridCells = [];
+            },
+
+            onAdd: function(map) {
+                this._map = map;
+
+                // Create canvas element
+                const canvas = L.DomUtil.create('canvas', 'leaflet-zoom-animated');
+                const size = this._map.getSize();
+                canvas.width = size.x;
+                canvas.height = size.y;
+
+                this._canvas = canvas;
+                this._ctx = canvas.getContext('2d');
+
+                // Add to map panes
+                this._map.getPanes().overlayPane.appendChild(this._canvas);
+
+                // Update canvas position and redraw on map events
+                this._map.on('moveend', this._reset, this);
+                this._map.on('resize', this._resize, this);
+
+                this._reset();
+            },
+
+            onRemove: function(map) {
+                L.DomUtil.remove(this._canvas);
+                map.off('moveend', this._reset, this);
+                map.off('resize', this._resize, this);
+            },
+
+            setGridCells: function(cells) {
+                this._gridCells = cells;
+                if (this._map) {
+                    this._reset();
+                }
+            },
+
+            _resize: function() {
+                const size = this._map.getSize();
+                this._canvas.width = size.x;
+                this._canvas.height = size.y;
+                this._reset();
+            },
+
+            _reset: function() {
+                // Update canvas position
+                const topLeft = this._map.containerPointToLayerPoint([0, 0]);
+                L.DomUtil.setPosition(this._canvas, topLeft);
+
+                this._redraw();
+            },
+
+            _redraw: function() {
+                if (!this._map || !this._gridCells || this._gridCells.length === 0) {
+                    return;
+                }
+
+                const ctx = this._ctx;
+                const canvas = this._canvas;
+
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Draw all grid cells
+                this._gridCells.forEach(cell => {
+                    // Convert lat/lon to pixel coordinates
+                    const topLeft = this._map.latLngToContainerPoint([cell.lat1, cell.lon1]);
+                    const bottomRight = this._map.latLngToContainerPoint([cell.lat2, cell.lon2]);
+
+                    const x = topLeft.x;
+                    const y = topLeft.y;
+                    const width = bottomRight.x - topLeft.x;
+                    const height = bottomRight.y - topLeft.y;
+
+                    // Only draw if visible on screen
+                    if (x + width >= 0 && x <= canvas.width && y + height >= 0 && y <= canvas.height) {
+                        // Set fill style with color and opacity
+                        ctx.fillStyle = cell.color;
+                        ctx.globalAlpha = cell.opacity;
+                        ctx.fillRect(x, y, width, height);
+                    }
+                });
+
+                // Reset alpha
+                ctx.globalAlpha = 1.0;
+            }
+        });
+
         // Debounce timer for prediction regeneration
         let predictionDebounceTimer = null;
 
@@ -423,12 +516,15 @@
 
         let markersLayer = L.layerGroup().addTo(map);
         let routeLayer = L.layerGroup();
-        let triangulationLayer = L.layerGroup();
+        let triangulationLayer = L.layerGroup();  // Keep for backward compatibility toggle logic
         let transmittersLayer = L.layerGroup().addTo(map);
-        let idwCanvas = null;
+        let heatmapCanvasLayer = new L.CanvasHeatmapLayer().addTo(map);  // Canvas overlay for heatmap
         let transmittersCache = [];
         let activeTransmitterIds = new Set();
         let userToggledTransmitters = false;
+
+        // Canvas heatmap data storage
+        let heatmapGridData = null;
 
         // Normalize PCI values to a number (or null) for matching
         function normalizePCIValue(pci) {
@@ -1009,9 +1105,7 @@
                         console.time('createTransmitterAwareHeatmap');
                         createTransmitterAwareHeatmap(pointsWithSignal, transmitters);
                         console.timeEnd('createTransmitterAwareHeatmap');
-                        if (showHeatmap) {
-                            triangulationLayer.addTo(map);
-                        }
+                        // Canvas layer is always on map, no need to add/remove
                         document.getElementById('legend').style.display = 'block';
                     } catch (error) {
                         console.error('Error creating heatmap:', error);
@@ -1031,14 +1125,17 @@
                     createRFHeatmap(displayData);
                 }
             } else {
+                // Clear canvas heatmap
+                heatmapCanvasLayer.setGridCells([]);
                 triangulationLayer.clearLayers();
-                map.removeLayer(triangulationLayer);
             }
             console.timeEnd('Call heatmap creation');
 
             // Function to create transmitter-aware RF propagation heatmap
             function createTransmitterAwareHeatmap(points, transmitters) {
+                // Clear old data
                 triangulationLayer.clearLayers();
+                const gridCells = [];  // Collect cells for canvas rendering
 
                 // Get map bounds
                 const bounds = map.getBounds();
@@ -1190,21 +1287,22 @@
                         if (finalTier !== null) {
                             const color = getTierColor(finalTier);
 
-                            const cell = L.rectangle([
-                                [lat1, lon1],
-                                [lat2, lon2]
-                            ], {
+                            // Add to canvas grid cells instead of creating rectangle
+                            gridCells.push({
+                                lat1: lat1,
+                                lon1: lon1,
+                                lat2: lat2,
+                                lon2: lon2,
                                 color: color,
-                                fillColor: color,
-                                fillOpacity: 0.4,
-                                weight: 0,
-                                interactive: false
+                                opacity: 0.4
                             });
-
-                            triangulationLayer.addLayer(cell);
                         }
                     }
                 }
+
+                // Update canvas layer with all grid cells
+                heatmapCanvasLayer.setGridCells(gridCells);
+                console.log(`[HEATMAP] Rendered ${gridCells.length} cells using canvas`);
             }
 
             // Apply layer visibility
@@ -1234,7 +1332,9 @@
             console.log('[HEATMAP] ====== PREDICTED HEATMAP VISUALIZATION ======');
             console.log(`[HEATMAP] Received ${predictedPoints.length} points from server`);
 
+            // Clear old data
             triangulationLayer.clearLayers();
+            const gridCells = [];  // Collect cells for canvas rendering
 
             // Get helper functions from updateVisualization scope
             function getSignalTier(rsrp, rsrq) {
@@ -1301,22 +1401,21 @@
                     opacity = 0.55;  // Standard - model prediction
                 }
 
-                const cell = L.rectangle([
-                    [lat1, lon1],
-                    [lat2, lon2]
-                ], {
+                // Add to canvas grid cells instead of creating rectangle
+                gridCells.push({
+                    lat1: lat1,
+                    lon1: lon1,
+                    lat2: lat2,
+                    lon2: lon2,
                     color: color,
-                    fillColor: color,
-                    fillOpacity: opacity,
-                    weight: 0,  // No borders for smooth appearance
-                    interactive: false
+                    opacity: opacity
                 });
-
-                triangulationLayer.addLayer(cell);
             });
 
-            triangulationLayer.addTo(map);
+            // Update canvas layer with all grid cells
+            heatmapCanvasLayer.setGridCells(gridCells);
             document.getElementById('legend').style.display = 'block';
+            console.log(`[HEATMAP] Rendered ${gridCells.length} cells using canvas`);
 
             console.log(`[HEATMAP] Tier distribution: Gray=${tierCounts[0]}, Red=${tierCounts[1]}, Yellow=${tierCounts[2]}, Green=${tierCounts[3]}`);
             console.log(`[HEATMAP] Grid cells: Interpolated=${sourceCounts.interpolated || 0}, Predicted=${sourceCounts.predicted || 0}`);
@@ -1424,11 +1523,11 @@
             showHeatmap = !showHeatmap;
             document.getElementById('toggle-heatmap').classList.toggle('active');
 
-            if (triangulationLayer) {
+            if (heatmapCanvasLayer) {
                 if (showHeatmap) {
-                    triangulationLayer.addTo(map);
+                    heatmapCanvasLayer.addTo(map);
                 } else {
-                    map.removeLayer(triangulationLayer);
+                    map.removeLayer(heatmapCanvasLayer);
                 }
             }
         }
