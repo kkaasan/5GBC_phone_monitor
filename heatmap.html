@@ -398,6 +398,9 @@
                 this._canvas = canvas;
                 this._ctx = canvas.getContext('2d');
 
+                // Disable image smoothing for crisp edges without anti-aliasing borders
+                this._ctx.imageSmoothingEnabled = false;
+
                 // Add to map panes
                 this._map.getPanes().overlayPane.appendChild(this._canvas);
 
@@ -453,11 +456,12 @@
                     const topLeft = this._map.latLngToContainerPoint([cell.lat1, cell.lon1]);
                     const bottomRight = this._map.latLngToContainerPoint([cell.lat2, cell.lon2]);
 
-                    // Floor coordinates and extend by 1 pixel to prevent gaps between cells
+                    // Round coordinates to exact pixels and extend slightly to prevent gaps
+                    // Use Math.floor for position and Math.ceil+1 for size to ensure overlap
                     const x = Math.floor(topLeft.x);
                     const y = Math.floor(topLeft.y);
-                    const width = Math.ceil(bottomRight.x - topLeft.x) + 1;
-                    const height = Math.ceil(bottomRight.y - topLeft.y) + 1;
+                    const width = Math.ceil(bottomRight.x) - Math.floor(topLeft.x) + 0.5;
+                    const height = Math.ceil(bottomRight.y) - Math.floor(topLeft.y) + 0.5;
 
                     // Only draw if visible on screen
                     if (x + width >= 0 && x <= canvas.width && y + height >= 0 && y <= canvas.height) {
