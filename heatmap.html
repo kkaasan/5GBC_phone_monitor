@@ -1272,8 +1272,8 @@
                 // Create polygons for each grid cell
                 for (let i = 0; i < gridSizeLat; i++) {
                     for (let j = 0; j < gridSizeLon; j++) {
-                        const lat1 = nw.lat + i * latStep;
-                        const lat2 = nw.lat + (i + 1) * latStep;
+                        const lat1 = nw.lat - i * latStep;  // Subtract to move south from north
+                        const lat2 = nw.lat - (i + 1) * latStep;
                         const lon1 = nw.lng + j * lonStep;
                         const lon2 = nw.lng + (j + 1) * lonStep;
 
