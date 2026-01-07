@@ -823,21 +823,42 @@ class APIHandler(SimpleHTTPRequestHandler):
         print(f"[PREDICTION] Coverage area: {south:.4f} to {north:.4f} lat, {west:.4f} to {east:.4f} lon")
 
         # Create adaptive grid based on zoom level for optimal performance and detail
-        # Zoom 5-8 (country): 60x60 = 3,600 cells
-        # Zoom 9-11 (region): 100x100 = 10,000 cells
-        # Zoom 12-14 (city): 150x150 = 22,500 cells
-        # Zoom 15+ (street): 200x200 = 40,000 cells
+        # Base grid size determines the smaller dimension
         if zoom <= 8:
-            grid_size = 60
+            base_grid_size = 60
         elif zoom <= 11:
-            grid_size = 100
+            base_grid_size = 100
         elif zoom <= 14:
-            grid_size = 150
+            base_grid_size = 150
         else:
-            grid_size = 200
+            base_grid_size = 200
 
-        lat_step = (north - south) / grid_size
-        lon_step = (east - west) / grid_size
+        # Calculate aspect ratio-adjusted grid for more square cells
+        # At high latitudes, longitude degrees are shorter in physical distance
+        center_lat = (north + south) / 2
+        lat_range = north - south
+        lon_range = east - west
+
+        # Adjust longitude range for latitude (1° lon ≈ 1° lat × cos(lat))
+        lon_range_adjusted = lon_range * math.cos(math.radians(center_lat))
+
+        # Calculate grid dimensions to make cells roughly square
+        aspect_ratio = lon_range_adjusted / lat_range
+
+        if aspect_ratio > 1:
+            # Map is wider than tall
+            grid_size_lat = base_grid_size
+            grid_size_lon = int(base_grid_size * aspect_ratio)
+        else:
+            # Map is taller than wide
+            grid_size_lon = base_grid_size
+            grid_size_lat = int(base_grid_size / aspect_ratio)
+
+        lat_step = lat_range / grid_size_lat
+        lon_step = lon_range / grid_size_lon
+
+        print(f"[PREDICTION] Grid: {grid_size_lat}x{grid_size_lon} (aspect ratio: {aspect_ratio:.2f})")
+        grid_size = max(grid_size_lat, grid_size_lon)  # For logging compatibility
 
         predicted_points = []
 
@@ -904,8 +925,8 @@ class APIHandler(SimpleHTTPRequestHandler):
         grid_start_time = time.time()
 
         # Now generate prediction grid for interpolation
-        for i in range(grid_size):
-            for j in range(grid_size):
+        for i in range(grid_size_lat):
+            for j in range(grid_size_lon):
                 lat = south + i * lat_step
                 lon = west + j * lon_step
                 total_grid_cells += 1
@@ -1289,7 +1310,7 @@ class APIHandler(SimpleHTTPRequestHandler):
         no_coverage_count = len([p for p in predicted_points if p['source'] == 'no_coverage'])
 
         print(f"[PREDICTION] ====== COVERAGE PREDICTION SUMMARY ======")
-        print(f"[PREDICTION] Grid: {grid_size}x{grid_size} = {grid_size*grid_size} cells")
+        print(f"[PREDICTION] Grid: {grid_size_lat}x{grid_size_lon} = {grid_size_lat*grid_size_lon} cells")
         print(f"[PREDICTION] Bounds: ({south:.4f}, {west:.4f}) to ({north:.4f}, {east:.4f})")
         print(f"[PREDICTION] Source measurements: {len(measurements)} points")
         print(f"[PREDICTION] Generated {len(predicted_points)} grid cells:")
@@ -1376,7 +1397,8 @@ class APIHandler(SimpleHTTPRequestHandler):
             'model': 'Okumura-Hata',
             'frequency_mhz': freq_mhz,
             'grid': {
-                'size': grid_size,
+                'size_lat': grid_size_lat,
+                'size_lon': grid_size_lon,
                 'bounds': {
                     'south': south,
                     'north': north,
@@ -1384,7 +1406,8 @@ class APIHandler(SimpleHTTPRequestHandler):
                     'east': east
                 },
                 'lat_step': lat_step,
-                'lon_step': lon_step
+                'lon_step': lon_step,
+                'aspect_ratio': aspect_ratio
             },
             'calibration': {
                 tx_id: {

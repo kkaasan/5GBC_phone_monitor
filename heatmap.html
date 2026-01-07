@@ -1220,8 +1220,33 @@
                 // Reduce grid if very few data points to avoid artifacts
                 if (dataPointCount < 50) gridSize = Math.min(gridSize, 60);
 
-                const latStep = (se.lat - nw.lat) / gridSize;
-                const lonStep = (se.lng - nw.lng) / gridSize;
+                // Calculate aspect ratio-adjusted grid for more square cells
+                // At high latitudes, longitude degrees are shorter in physical distance
+                const centerLat = (nw.lat + se.lat) / 2;
+                const latRange = se.lat - nw.lat;
+                const lonRange = se.lng - nw.lng;
+
+                // Adjust longitude range for latitude (1° lon ≈ 1° lat × cos(lat))
+                const lonRangeAdjusted = lonRange * Math.cos(centerLat * Math.PI / 180);
+
+                // Calculate grid dimensions to make cells roughly square
+                const aspectRatio = lonRangeAdjusted / latRange;
+                let gridSizeLat, gridSizeLon;
+
+                if (aspectRatio > 1) {
+                    // Map is wider than tall
+                    gridSizeLat = gridSize;
+                    gridSizeLon = Math.round(gridSize * aspectRatio);
+                } else {
+                    // Map is taller than wide
+                    gridSizeLon = gridSize;
+                    gridSizeLat = Math.round(gridSize / aspectRatio);
+                }
+
+                const latStep = latRange / gridSizeLat;
+                const lonStep = lonRange / gridSizeLon;
+
+                console.log(`[HEATMAP] Grid: ${gridSizeLat}×${gridSizeLon} (aspect ratio: ${aspectRatio.toFixed(2)})`);
 
                 // Group measurements by transmitter
                 const pointsByTransmitter = {};
@@ -1240,8 +1265,8 @@
                 });
 
                 // Create polygons for each grid cell
-                for (let i = 0; i < gridSize; i++) {
-                    for (let j = 0; j < gridSize; j++) {
+                for (let i = 0; i < gridSizeLat; i++) {
+                    for (let j = 0; j < gridSizeLon; j++) {
                         const lat1 = nw.lat + i * latStep;
                         const lat2 = nw.lat + (i + 1) * latStep;
                         const lon1 = nw.lng + j * lonStep;
