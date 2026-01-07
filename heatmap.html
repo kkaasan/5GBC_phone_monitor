@@ -972,7 +972,7 @@
                 return transmitters.find(tx => normalizePCIValue(tx.pci) === pci) || null;
             }
 
-            // Create markers with transmitter distance info
+            // Create markers with deferred popup generation for better performance
             const createMarkers = async (pointsToRender) => {
                 const transmitters = transmittersCache.length ? transmittersCache : await loadTransmitters();
 
@@ -995,57 +995,62 @@
                         fillOpacity: 0.9
                     });
 
-                    const time = new Date(point.timestamp).toLocaleTimeString('en-GB', { hour12: false });
-                    const date = new Date(point.timestamp).toLocaleDateString();
-                    let popupContent = `<div style="font-size: 13px; line-height: 1.6;">`;
-                    popupContent += `<b style="font-size: 14px;">📍 Point ${idx + 1}</b><br>`;
-                    popupContent += `<div style="margin-top: 8px;">`;
-                    if (currentSessions.length > 1 && point.sessionId) {
-                        popupContent += `📋 Session: ${point.sessionId}<br>`;
-                    }
-                    popupContent += `⏰ ${date} ${time}<br>`;
-                    popupContent += `📌 ${lat.toFixed(6)}, ${lon.toFixed(6)}</div>`;
+                    // Generate popup content on-demand when clicked (lazy loading)
+                    marker.on('click', function() {
+                        const time = new Date(point.timestamp).toLocaleTimeString('en-GB', { hour12: false });
+                        const date = new Date(point.timestamp).toLocaleDateString();
+                        let popupContent = `<div style="font-size: 13px; line-height: 1.6;">`;
+                        popupContent += `<b style="font-size: 14px;">📍 Point ${idx + 1}</b><br>`;
+                        popupContent += `<div style="margin-top: 8px;">`;
+                        if (currentSessions.length > 1 && point.sessionId) {
+                            popupContent += `📋 Session: ${point.sessionId}<br>`;
+                        }
+                        popupContent += `⏰ ${date} ${time}<br>`;
+                        popupContent += `📌 ${lat.toFixed(6)}, ${lon.toFixed(6)}</div>`;
 
-                    // Signal Strength Section
-                    popupContent += `<div style="margin-top: 8px; padding: 4px; background: #f0f0f0; border-radius: 4px;">`;
-                    popupContent += `<b>📶 Signal Strength:</b><br>`;
-                    popupContent += `RSRP: <b>${rsrp !== null ? rsrp + ' dBm' : 'N/A'}</b><br>`;
-                    if (point.signal.rssi !== null) popupContent += `RSSI: ${point.signal.rssi} dBm<br>`;
-                    if (point.signal.rsrq !== null) popupContent += `RSRQ: ${point.signal.rsrq} dB`;
-                    popupContent += `</div>`;
-
-                    // Cell Tower Section with distance
-                    const pci = normalizePCIValue(point.lte?.pci);
-                    const matchedTx = transmitters.find(tx => normalizePCIValue(tx.pci) === pci);
-
-                    popupContent += `<div style="margin-top: 8px; padding: 4px; background: #e8f4f8; border-radius: 4px;">`;
-                    popupContent += `<b>🗼 Cell Tower:</b><br>`;
-                    popupContent += `PCI: <b>${pci !== null ? pci : 'N/A'}</b><br>`;
-                    popupContent += `Cell ID: ${point.lte.ci || 'N/A'}<br>`;
-                    popupContent += `Network: ${point.lte.mcc || '?'}-${point.lte.mnc || '?'}`;
-                    popupContent += `</div>`;
-
-                    // Distance to Transmitter
-                    if (matchedTx) {
-                        const distance = calculateDistance(lat, lon, matchedTx.lat, matchedTx.lon);
-                        const distanceText = distance < 1 ?
-                            `${(distance * 1000).toFixed(0)} m` :
-                            `${distance.toFixed(2)} km`;
-
-                        popupContent += `<div style="margin-top: 8px; padding: 4px; background: #fef3c7; border-radius: 4px; border-left: 3px solid #f59e0b;">`;
-                        popupContent += `<b>📡 ${matchedTx.name}</b><br>`;
-                        popupContent += `Distance: <b>${distanceText}</b>`;
+                        // Signal Strength Section
+                        popupContent += `<div style="margin-top: 8px; padding: 4px; background: #f0f0f0; border-radius: 4px;">`;
+                        popupContent += `<b>📶 Signal Strength:</b><br>`;
+                        popupContent += `RSRP: <b>${rsrp !== null ? rsrp + ' dBm' : 'N/A'}</b><br>`;
+                        if (point.signal.rssi !== null) popupContent += `RSSI: ${point.signal.rssi} dBm<br>`;
+                        if (point.signal.rsrq !== null) popupContent += `RSRQ: ${point.signal.rsrq} dB`;
                         popupContent += `</div>`;
-                    } else if (pci) {
-                        popupContent += `<div style="margin-top: 8px; padding: 4px; background: #fee2e2; border-radius: 4px; border-left: 3px solid #ef4444;">`;
-                        popupContent += `<b>⚠️ Transmitter not configured</b><br>`;
-                        popupContent += `<span style="font-size: 11px;">Add PCI ${pci} in settings</span>`;
+
+                        // Cell Tower Section with distance
+                        const pci = normalizePCIValue(point.lte?.pci);
+                        const matchedTx = transmitters.find(tx => normalizePCIValue(tx.pci) === pci);
+
+                        popupContent += `<div style="margin-top: 8px; padding: 4px; background: #e8f4f8; border-radius: 4px;">`;
+                        popupContent += `<b>🗼 Cell Tower:</b><br>`;
+                        popupContent += `PCI: <b>${pci !== null ? pci : 'N/A'}</b><br>`;
+                        popupContent += `Cell ID: ${point.lte.ci || 'N/A'}<br>`;
+                        popupContent += `Network: ${point.lte.mcc || '?'}-${point.lte.mnc || '?'}`;
                         popupContent += `</div>`;
-                    }
 
-                    popupContent += `</div>`;
+                        // Distance to Transmitter
+                        if (matchedTx) {
+                            const distance = calculateDistance(lat, lon, matchedTx.lat, matchedTx.lon);
+                            const distanceText = distance < 1 ?
+                                `${(distance * 1000).toFixed(0)} m` :
+                                `${distance.toFixed(2)} km`;
 
-                    marker.bindPopup(popupContent);
+                            popupContent += `<div style="margin-top: 8px; padding: 4px; background: #fef3c7; border-radius: 4px; border-left: 3px solid #f59e0b;">`;
+                            popupContent += `<b>📡 ${matchedTx.name}</b><br>`;
+                            popupContent += `Distance: <b>${distanceText}</b>`;
+                            popupContent += `</div>`;
+                        } else if (pci) {
+                            popupContent += `<div style="margin-top: 8px; padding: 4px; background: #fee2e2; border-radius: 4px; border-left: 3px solid #ef4444;">`;
+                            popupContent += `<b>⚠️ Transmitter not configured</b><br>`;
+                            popupContent += `<span style="font-size: 11px;">Add PCI ${pci} in settings</span>`;
+                            popupContent += `</div>`;
+                        }
+
+                        popupContent += `</div>`;
+
+                        // Set popup content when clicked
+                        this.bindPopup(popupContent).openPopup();
+                    });
+
                     markersLayer.addLayer(marker);
                 }
             };
