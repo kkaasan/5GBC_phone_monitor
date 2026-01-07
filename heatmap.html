@@ -1236,12 +1236,16 @@
                 if (aspectRatio > 1) {
                     // Map is wider than tall
                     gridSizeLat = gridSize;
-                    gridSizeLon = Math.round(gridSize * aspectRatio);
+                    gridSizeLon = Math.max(1, Math.round(gridSize * aspectRatio));
                 } else {
                     // Map is taller than wide
                     gridSizeLon = gridSize;
-                    gridSizeLat = Math.round(gridSize / aspectRatio);
+                    gridSizeLat = Math.max(1, Math.round(gridSize / aspectRatio));
                 }
+
+                // Safety check to ensure valid grid sizes
+                if (!gridSizeLat || gridSizeLat < 1) gridSizeLat = gridSize;
+                if (!gridSizeLon || gridSizeLon < 1) gridSizeLon = gridSize;
 
                 const latStep = latRange / gridSizeLat;
                 const lonStep = lonRange / gridSizeLon;
