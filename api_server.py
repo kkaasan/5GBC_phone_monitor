@@ -957,13 +957,26 @@ class APIHandler(SimpleHTTPRequestHandler):
 
                 # Early exit: Check if cell is beyond all transmitter coverage areas
                 # This avoids expensive processing for cells that are obviously outside coverage
+                # Also cache distance and antenna gain calculations for this cell
                 within_any_possible_coverage = False
+                cell_tx_distances = {}  # Cache distances to avoid recalculation
+                cell_antenna_gains = {}  # Cache antenna gains to avoid recalculation
+
                 for tx_id, params in tx_params.items():
                     dist_to_tx = self.haversine_distance(params['lat'], params['lon'], lat, lon)
+                    cell_tx_distances[tx_id] = dist_to_tx
+
+                    # Pre-calculate antenna gain for this cell (expensive atan2 calculation)
+                    antenna_gain = self.calculate_antenna_gain(
+                        params['lat'], params['lon'], lat, lon,
+                        params.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
+                    )
+                    cell_antenna_gains[tx_id] = antenna_gain
+
                     max_possible_distance = max_coverage_distance_per_tx.get(tx_id, 0) + 5.0  # Include gray zone
                     if dist_to_tx <= max_possible_distance:
                         within_any_possible_coverage = True
-                        break
+                        # Don't break - continue to cache all distances and gains
 
                 if not within_any_possible_coverage:
                     # Cell is beyond all coverage areas - mark as no coverage and skip processing
@@ -1048,23 +1061,23 @@ class APIHandler(SimpleHTTPRequestHandler):
                     # Find distance to nearest transmitter and check coverage boundary
                     min_dist_to_tx = float('inf')
                     nearest_tx_params = None
+                    nearest_tx_id = None
                     within_coverage_boundary = False
 
                     for tx_id, params in tx_params.items():
-                        dist_to_tx = self.haversine_distance(params['lat'], params['lon'], lat, lon)
+                        # Use cached distance instead of recalculating
+                        dist_to_tx = cell_tx_distances[tx_id]
                         if dist_to_tx < min_dist_to_tx:
                             min_dist_to_tx = dist_to_tx
                             nearest_tx_params = params
+                            nearest_tx_id = tx_id
 
                         # Check if within coverage boundary (farthest measurement + 5km)
                         # Apply directional antenna gain to boundary check
                         max_coverage_dist = max_coverage_distance_per_tx.get(tx_id, 0)
 
-                        # Calculate antenna gain for this direction
-                        antenna_gain = self.calculate_antenna_gain(
-                            params['lat'], params['lon'], lat, lon,
-                            params.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
-                        )
+                        # Use cached antenna gain instead of recalculating
+                        antenna_gain = cell_antenna_gains[tx_id]
 
                         # Adjust coverage distance based on antenna gain
                         if antenna_gain != 0:
@@ -1087,14 +1100,12 @@ class APIHandler(SimpleHTTPRequestHandler):
                         # Also apply directional antenna gain to gray zone
                         in_gray_zone = False
                         for tx_id, params in tx_params.items():
-                            dist_km = self.haversine_distance(params['lat'], params['lon'], lat, lon)
+                            # Use cached distance instead of recalculating
+                            dist_km = cell_tx_distances[tx_id]
                             max_coverage_dist = max_coverage_distance_per_tx.get(tx_id, 0)
 
-                            # Calculate antenna gain for this direction
-                            antenna_gain = self.calculate_antenna_gain(
-                                params['lat'], params['lon'], lat, lon,
-                                params.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
-                            )
+                            # Use cached antenna gain instead of recalculating
+                            antenna_gain = cell_antenna_gains[tx_id]
 
                             # Adjust coverage distance based on antenna gain
                             if antenna_gain != 0:
@@ -1143,10 +1154,8 @@ class APIHandler(SimpleHTTPRequestHandler):
 
                         path_loss += nearest_tx_params['correction']
 
-                        antenna_gain = self.calculate_antenna_gain(
-                            nearest_tx_params['lat'], nearest_tx_params['lon'], lat, lon,
-                            nearest_tx_params.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
-                        )
+                        # Use cached antenna gain instead of recalculating
+                        antenna_gain = cell_antenna_gains[nearest_tx_id]
 
                         rsrp = nearest_tx_params['tx_power'] - path_loss + antenna_gain
                         rsrq = rsrp - 10
@@ -1238,14 +1247,12 @@ class APIHandler(SimpleHTTPRequestHandler):
                     # Apply directional antenna gain to coverage area check
                     within_coverage_area = False
                     for tx_id, params in tx_params.items():
-                        dist_km = self.haversine_distance(params['lat'], params['lon'], lat, lon)
+                        # Use cached distance instead of recalculating
+                        dist_km = cell_tx_distances[tx_id]
                         max_coverage_dist = max_coverage_distance_per_tx.get(tx_id, 0)
 
-                        # Calculate antenna gain for this direction
-                        antenna_gain = self.calculate_antenna_gain(
-                            params['lat'], params['lon'], lat, lon,
-                            params.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
-                        )
+                        # Use cached antenna gain instead of recalculating
+                        antenna_gain = cell_antenna_gains[tx_id]
 
                         # Adjust coverage distance based on antenna gain
                         # Path loss scales logarithmically: 10*log10(d^n) where n≈3.5 for suburban
@@ -1271,7 +1278,8 @@ class APIHandler(SimpleHTTPRequestHandler):
                         best_rsrq = -20
 
                         for tx_id, params in tx_params.items():
-                            dist_km = self.haversine_distance(params['lat'], params['lon'], lat, lon)
+                            # Use cached distance instead of recalculating
+                            dist_km = cell_tx_distances[tx_id]
 
                             if dist_km < 0.1:  # Minimum distance 100m
                                 dist_km = 0.1
@@ -1288,11 +1296,8 @@ class APIHandler(SimpleHTTPRequestHandler):
                             # Apply calibration correction
                             path_loss += params['correction']
 
-                            # Calculate antenna gain based on direction
-                            antenna_gain = self.calculate_antenna_gain(
-                                params['lat'], params['lon'], lat, lon,
-                                params.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
-                            )
+                            # Use cached antenna gain instead of recalculating
+                            antenna_gain = cell_antenna_gains[tx_id]
 
                             # Calculate RSRP with Okumura-Hata propagation
                             rsrp = params['tx_power'] - path_loss + antenna_gain
@@ -1321,14 +1326,12 @@ class APIHandler(SimpleHTTPRequestHandler):
                         # Also apply directional antenna gain to gray zone
                         in_gray_zone = False
                         for tx_id, params in tx_params.items():
-                            dist_km = self.haversine_distance(params['lat'], params['lon'], lat, lon)
+                            # Use cached distance instead of recalculating
+                            dist_km = cell_tx_distances[tx_id]
                             max_coverage_dist = max_coverage_distance_per_tx.get(tx_id, 0)
 
-                            # Calculate antenna gain for this direction
-                            antenna_gain = self.calculate_antenna_gain(
-                                params['lat'], params['lon'], lat, lon,
-                                params.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
-                            )
+                            # Use cached antenna gain instead of recalculating
+                            antenna_gain = cell_antenna_gains[tx_id]
 
                             # Adjust coverage distance based on antenna gain
                             if antenna_gain < 0:
