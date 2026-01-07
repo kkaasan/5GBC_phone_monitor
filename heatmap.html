@@ -1142,6 +1142,50 @@
                 const nw = bounds.getNorthWest();
                 const se = bounds.getSouthEast();
 
+                // Build spatial index for fast nearest-neighbor lookup
+                console.time('Build spatial index');
+                const spatialIndex = {};
+                const indexGridSize = 20; // Divide area into 20x20 spatial grid
+                const indexLatStep = (se.lat - nw.lat) / indexGridSize;
+                const indexLonStep = (se.lng - nw.lng) / indexGridSize;
+
+                points.forEach(point => {
+                    const indexLat = Math.floor((point.lat - nw.lat) / indexLatStep);
+                    const indexLon = Math.floor((point.lon - nw.lng) / indexLonStep);
+                    const key = `${indexLat},${indexLon}`;
+
+                    if (!spatialIndex[key]) {
+                        spatialIndex[key] = [];
+                    }
+                    spatialIndex[key].push(point);
+                });
+                console.timeEnd('Build spatial index');
+
+                // Helper function to get nearby points from spatial index
+                function getNearbyPoints(lat, lon, radiusKm) {
+                    const nearbyPoints = [];
+
+                    // Calculate which index cells to check (search radius in index grid cells)
+                    const indexLat = Math.floor((lat - nw.lat) / indexLatStep);
+                    const indexLon = Math.floor((lon - nw.lng) / indexLonStep);
+
+                    // Check this cell and all surrounding cells (3x3 grid around center)
+                    // This is approximate but fast - we'll do exact distance check later
+                    const cellsToCheck = Math.ceil(radiusKm / ((indexLatStep * 111) + (indexLonStep * 111 * Math.cos(lat * Math.PI / 180))));
+                    const checkRadius = Math.max(1, Math.min(cellsToCheck, 3)); // Limit to 3 cells
+
+                    for (let di = -checkRadius; di <= checkRadius; di++) {
+                        for (let dj = -checkRadius; dj <= checkRadius; dj++) {
+                            const key = `${indexLat + di},${indexLon + dj}`;
+                            if (spatialIndex[key]) {
+                                nearbyPoints.push(...spatialIndex[key]);
+                            }
+                        }
+                    }
+
+                    return nearbyPoints;
+                }
+
                 // Create grid for interpolation
                 // Use adaptive grid size based on zoom level and data density
                 const zoom = map.getZoom();
@@ -1207,25 +1251,28 @@
                             // Distance from grid cell to transmitter
                             const distToTx = calculateDistance(centerLat, centerLon, transmitter.lat, transmitter.lon);
 
-                            // Find nearby measurements from this transmitter
+                            // Find nearby measurements from this transmitter using spatial index
                             let weightedSum = 0;
                             let weightSum = 0;
 
-                            for (const point of txPoints) {
+                            // Get candidate points from spatial index (much faster than checking all points)
+                            const maxSearchRadius = Math.min(15, Math.max(2, distToTx * 0.3));
+                            const candidatePoints = getNearbyPoints(centerLat, centerLon, maxSearchRadius);
+
+                            // Filter to this transmitter's points
+                            const nearbyTxPoints = candidatePoints.filter(p => p.transmitter && p.transmitter.id === transmitter.id);
+
+                            for (const point of nearbyTxPoints) {
                                 const distToPoint = calculateDistance(centerLat, centerLon, point.lat, point.lon);
                                 const distPointToTx = calculateDistance(point.lat, point.lon, transmitter.lat, transmitter.lon);
 
-                                // Use measurements within a dynamic range:
-                                // - minimum 2km
-                                // - at least 30% of cell-to-tx distance
-                                // - extend toward far-away measurements (50% of point-to-tx distance), capped to 15km
-                                // Keep radius smaller to avoid extending coverage beyond measured areas
-                                const maxSearchRadius = Math.min(
+                                // Refine search radius based on point-to-tx distance
+                                const refinedMaxSearchRadius = Math.min(
                                     15,
                                     Math.max(2, distToTx * 0.3, distPointToTx * 0.5)
                                 );
 
-                                if (distToPoint < maxSearchRadius) {
+                                if (distToPoint < refinedMaxSearchRadius) {
                                     if (distToPoint < 0.0001) {
                                         // Very close to measurement - use it directly
                                         weightedSum = point.tier;
@@ -1255,12 +1302,14 @@
                             }
                         });
 
-                        // Also consider unconfigured points (fallback)
+                        // Also consider unconfigured points (fallback) - using spatial index
                         if (unconfiguredPoints.length > 0 && finalTier === null) {
                             let weightedSum = 0;
                             let weightSum = 0;
 
-                            for (const point of unconfiguredPoints) {
+                            const nearbyUnconfigured = getNearbyPoints(centerLat, centerLon, 5).filter(p => !p.transmitter);
+
+                            for (const point of nearbyUnconfigured) {
                                 const dist = calculateDistance(centerLat, centerLon, point.lat, point.lon);
 
                                 if (dist < 5) { // 5km for unconfigured points
@@ -1281,13 +1330,15 @@
                             }
                         }
 
-                        // Final safety net: if no tier yet, consider all points with a LIMITED radius
-                        // Don't extend coverage too far beyond actual measurements
+                        // Final safety net: if no tier yet, consider nearby points with LIMITED radius
+                        // Don't extend coverage too far beyond actual measurements - using spatial index
                         if (finalTier === null) {
                             let weightedSum = 0;
                             let weightSum = 0;
 
-                            for (const point of points) {
+                            const nearbyAll = getNearbyPoints(centerLat, centerLon, 3);
+
+                            for (const point of nearbyAll) {
                                 const dist = calculateDistance(centerLat, centerLon, point.lat, point.lon);
                                 // Only use very nearby measurements - don't extrapolate far
                                 if (dist < 3) { // 3km limited fallback - signal can't extend beyond measurements
