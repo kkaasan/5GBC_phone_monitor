@@ -1223,8 +1223,9 @@
                 // Calculate aspect ratio-adjusted grid for more square cells
                 // At high latitudes, longitude degrees are shorter in physical distance
                 const centerLat = (nw.lat + se.lat) / 2;
-                const latRange = se.lat - nw.lat;
-                const lonRange = se.lng - nw.lng;
+                // Note: nw.lat is north (higher), se.lat is south (lower)
+                const latRange = Math.abs(nw.lat - se.lat);  // Always positive
+                const lonRange = Math.abs(se.lng - nw.lng);  // Always positive
 
                 // Adjust longitude range for latitude (1° lon ≈ 1° lat × cos(lat))
                 const lonRangeAdjusted = lonRange * Math.cos(centerLat * Math.PI / 180);
