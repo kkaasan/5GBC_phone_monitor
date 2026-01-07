@@ -551,6 +551,9 @@ class APIHandler(SimpleHTTPRequestHandler):
         import numpy as np
         from scipy.optimize import curve_fit
 
+        import time
+        prediction_start_time = time.time()
+
         print(f"[PREDICTION] Starting prediction with {len(transmitters)} transmitters, {len(measurements)} measurements at zoom {zoom}")
 
         # Debug: Print first measurement to see structure
@@ -895,6 +898,10 @@ class APIHandler(SimpleHTTPRequestHandler):
         # Track directional boundary effects for diagnostics
         directional_rejections = 0
         total_grid_cells = 0
+
+        # Time the grid generation
+        import time
+        grid_start_time = time.time()
 
         # Now generate prediction grid for interpolation
         for i in range(grid_size):
@@ -1270,6 +1277,11 @@ class APIHandler(SimpleHTTPRequestHandler):
                                 'source': 'no_coverage'
                             })
 
+        # Time grid generation
+        grid_end_time = time.time()
+        grid_time_ms = (grid_end_time - grid_start_time) * 1000
+        print(f"[PREDICTION] Grid generation completed in {grid_time_ms:.1f}ms")
+
         # Calculate statistics for diagnostics
         interpolated_count = len([p for p in predicted_points if p['source'] == 'interpolated'])
         predicted_count = len([p for p in predicted_points if p['source'] == 'predicted'])
@@ -1352,6 +1364,11 @@ class APIHandler(SimpleHTTPRequestHandler):
                         'count': len(errors)
                     }
                     print(f"[VALIDATION] {source.capitalize()} error: MAE={mae:.1f}dB, RMSE={rmse:.1f}dB (n={len(errors)})")
+
+        # Total prediction time
+        prediction_end_time = time.time()
+        total_time_ms = (prediction_end_time - prediction_start_time) * 1000
+        print(f"[PREDICTION] ====== TOTAL PREDICTION TIME: {total_time_ms:.1f}ms ======")
 
         return {
             'success': True,

@@ -453,10 +453,11 @@
                     const topLeft = this._map.latLngToContainerPoint([cell.lat1, cell.lon1]);
                     const bottomRight = this._map.latLngToContainerPoint([cell.lat2, cell.lon2]);
 
-                    const x = topLeft.x;
-                    const y = topLeft.y;
-                    const width = bottomRight.x - topLeft.x;
-                    const height = bottomRight.y - topLeft.y;
+                    // Floor coordinates and extend by 1 pixel to prevent gaps between cells
+                    const x = Math.floor(topLeft.x);
+                    const y = Math.floor(topLeft.y);
+                    const width = Math.ceil(bottomRight.x - topLeft.x) + 1;
+                    const height = Math.ceil(bottomRight.y - topLeft.y) + 1;
 
                     // Only draw if visible on screen
                     if (x + width >= 0 && x <= canvas.width && y + height >= 0 && y <= canvas.height) {
