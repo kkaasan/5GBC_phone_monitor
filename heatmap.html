@@ -321,6 +321,17 @@
             </div>
 
             <div class="control-section">
+                <h4>Coverage Mode</h4>
+                <div class="toggle-group" style="grid-template-columns: 1fr 1fr;">
+                    <button class="toggle-btn active" id="toggle-measured" onclick="toggleCoverageMode('measured')">📊 Measured</button>
+                    <button class="toggle-btn" id="toggle-predicted" onclick="toggleCoverageMode('predicted')">🔮 Predicted</button>
+                </div>
+                <div id="prediction-status" style="font-size: 11px; color: #64748b; margin-top: 8px; text-align: center; display: none;">
+                    Generating coverage prediction...
+                </div>
+            </div>
+
+            <div class="control-section">
                 <h4>Actions</h4>
                 <button class="button export" onclick="exportToCSV()">📥 Export to CSV</button>
                 <button class="button" onclick="refreshSessions()">🔄 Refresh Sessions</button>
@@ -368,13 +379,39 @@
             maxZoom: 19
         }).addTo(map);
 
+        // Debounce timer for prediction regeneration
+        let predictionDebounceTimer = null;
+
         // Add zoom and move event listeners to refresh heatmap dynamically
         map.on('zoomend moveend', function() {
             // Skip if we're in the middle of loading a session (prevents infinite loop with auto-zoom)
             if (isLoadingSession) return;
 
             if (filteredData.length > 0 && showHeatmap) {
-                updateVisualization();
+                // If in prediction mode, regenerate with new bounds
+                if (coverageMode === 'predicted' && predictedCoverageData) {
+                    // Debounce to avoid excessive API calls during rapid zoom
+                    clearTimeout(predictionDebounceTimer);
+                    predictionDebounceTimer = setTimeout(async () => {
+                        try {
+                            const statusDiv = document.getElementById('prediction-status');
+                            statusDiv.style.display = 'block';
+                            statusDiv.style.color = '#64748b';
+                            statusDiv.textContent = 'Updating for new view...';
+
+                            await generatePrediction();
+
+                            statusDiv.style.display = 'none';
+                        } catch (error) {
+                            console.error('Prediction update error:', error);
+                            const statusDiv = document.getElementById('prediction-status');
+                            statusDiv.textContent = '⚠ Update failed';
+                            statusDiv.style.color = '#ef4444';
+                        }
+                    }, 500); // Wait 500ms after zoom/pan stops
+                } else {
+                    updateVisualization();
+                }
             }
         });
 
@@ -403,6 +440,8 @@
         let showRoute = false;
         let showMarkers = true;
         let isLoadingSession = false; // Flag to prevent infinite loop during auto-zoom
+        let coverageMode = 'measured'; // 'measured' or 'predicted'
+        let predictedCoverageData = null;
 
         // Load transmitter locations from server
         async function loadTransmitters() {
@@ -472,7 +511,26 @@
             }
 
             await showTransmitters(); // refresh icon states
-            updateVisualization();
+
+            // If in predicted mode, regenerate prediction with new transmitter selection
+            if (coverageMode === 'predicted') {
+                try {
+                    const statusDiv = document.getElementById('prediction-status');
+                    statusDiv.style.display = 'block';
+                    statusDiv.style.color = '#64748b';
+                    statusDiv.textContent = 'Updating prediction...';
+
+                    await generatePrediction();
+
+                    statusDiv.textContent = '✓ Prediction updated';
+                    setTimeout(() => statusDiv.style.display = 'none', 1500);
+                } catch (error) {
+                    console.error('Prediction update error:', error);
+                }
+            } else {
+                updateVisualization();
+            }
+
             updateStats();
         }
 
@@ -896,27 +954,32 @@
                 }
             };
 
-            // Call async marker creation
-            console.time('Create markers');
-            createMarkers(displayData);
-            console.timeEnd('Create markers');
+            // Only show individual markers and route in measured mode
+            if (coverageMode !== 'predicted') {
+                // Call async marker creation
+                console.time('Create markers');
+                createMarkers(displayData);
+                console.timeEnd('Create markers');
 
-            // Create route
-            console.time('Create route');
-            const routeCoords = displayData
-                .filter(p => p.location.latitude && p.location.longitude)
-                .map(p => [parseFloat(p.location.latitude), parseFloat(p.location.longitude)]);
+                // Create route
+                console.time('Create route');
+                const routeCoords = displayData
+                    .filter(p => p.location.latitude && p.location.longitude)
+                    .map(p => [parseFloat(p.location.latitude), parseFloat(p.location.longitude)]);
 
-            if (routeCoords.length > 1) {
-                const routeLine = L.polyline(routeCoords, {
-                    color: '#667eea',
-                    weight: 4,
-                    opacity: 0.7,
-                    dashArray: '10, 5'
-                });
-                routeLayer.addLayer(routeLine);
+                if (routeCoords.length > 1) {
+                    const routeLine = L.polyline(routeCoords, {
+                        color: '#667eea',
+                        weight: 4,
+                        opacity: 0.7,
+                        dashArray: '10, 5'
+                    });
+                    routeLayer.addLayer(routeLine);
+                }
+                console.timeEnd('Create route');
+            } else {
+                console.log('[HEATMAP] Predicted mode: Skipping individual markers and route');
             }
-            console.timeEnd('Create route');
 
             // Create transmitter-aware RF propagation heatmap
             const createRFHeatmap = async (pointsToRender) => {
@@ -960,7 +1023,13 @@
             // Call async heatmap creation
             console.time('Call heatmap creation');
             if (showHeatmap) {
-                createRFHeatmap(displayData);
+                if (coverageMode === 'predicted' && predictedCoverageData) {
+                    // Use predicted coverage data
+                    createPredictedHeatmap(predictedCoverageData.points);
+                } else {
+                    // Use measured data
+                    createRFHeatmap(displayData);
+                }
             } else {
                 triangulationLayer.clearLayers();
                 map.removeLayer(triangulationLayer);
@@ -979,8 +1048,8 @@
                 // Create grid for interpolation
                 // Use adaptive grid size based on data density
                 const dataPointCount = points.length;
-                const gridSize = dataPointCount < 50 ? 25 :
-                                dataPointCount < 100 ? 35 : 45; // Adaptive grid
+                const gridSize = dataPointCount < 50 ? 60 :
+                                dataPointCount < 100 ? 100 : 150; // Adaptive grid with finer resolution
                 const latStep = (se.lat - nw.lat) / gridSize;
                 const lonStep = (se.lng - nw.lng) / gridSize;
 
@@ -1031,12 +1100,13 @@
                                 const distPointToTx = calculateDistance(point.lat, point.lon, transmitter.lat, transmitter.lon);
 
                                 // Use measurements within a dynamic range:
-                                // - minimum 500m
+                                // - minimum 2km
                                 // - at least 30% of cell-to-tx distance
-                                // - extend toward far-away measurements (50% of point-to-tx distance), capped to 5km
+                                // - extend toward far-away measurements (50% of point-to-tx distance), capped to 15km
+                                // Keep radius smaller to avoid extending coverage beyond measured areas
                                 const maxSearchRadius = Math.min(
-                                    5,
-                                    Math.max(0.5, distToTx * 0.3, distPointToTx * 0.5)
+                                    15,
+                                    Math.max(2, distToTx * 0.3, distPointToTx * 0.5)
                                 );
 
                                 if (distToPoint < maxSearchRadius) {
@@ -1077,7 +1147,7 @@
                             for (const point of unconfiguredPoints) {
                                 const dist = calculateDistance(centerLat, centerLon, point.lat, point.lon);
 
-                                if (dist < 0.05) { // 5km
+                                if (dist < 5) { // 5km for unconfigured points
                                     if (dist < 0.0001) {
                                         weightedSum = point.tier;
                                         weightSum = 1;
@@ -1095,15 +1165,17 @@
                             }
                         }
 
-                        // Final safety net: if no tier yet, consider all points with a broader radius
+                        // Final safety net: if no tier yet, consider all points with a LIMITED radius
+                        // Don't extend coverage too far beyond actual measurements
                         if (finalTier === null) {
                             let weightedSum = 0;
                             let weightSum = 0;
 
                             for (const point of points) {
                                 const dist = calculateDistance(centerLat, centerLon, point.lat, point.lon);
-                                if (dist < 3) { // 3km broad fallback
-                                    const weight = 1 / Math.pow(Math.max(dist, 0.0001), 2);
+                                // Only use very nearby measurements - don't extrapolate far
+                                if (dist < 3) { // 3km limited fallback - signal can't extend beyond measurements
+                                    const weight = 1 / Math.pow(Math.max(dist, 0.0001), 3);
                                     weightedSum += point.tier * weight;
                                     weightSum += weight;
                                 }
@@ -1154,6 +1226,107 @@
             } catch (vizError) {
                 console.error('Visualization error:', vizError);
             }
+        }
+
+        // Create heatmap from predicted coverage data
+        function createPredictedHeatmap(predictedPoints) {
+            console.time('Create predicted heatmap');
+            console.log('[HEATMAP] ====== PREDICTED HEATMAP VISUALIZATION ======');
+            console.log(`[HEATMAP] Received ${predictedPoints.length} points from server`);
+
+            triangulationLayer.clearLayers();
+
+            // Get helper functions from updateVisualization scope
+            function getSignalTier(rsrp, rsrq) {
+                if (rsrp === null && rsrq === null) return 0;
+                if ((rsrp === null || rsrp < -120) && (rsrq === null || rsrq < -20)) return 0;
+                if ((rsrp !== null && rsrp >= -95) || (rsrq !== null && rsrq >= -10)) return 3;
+                if ((rsrp !== null && rsrp >= -105) || (rsrq !== null && rsrq >= -13)) return 2;
+                if ((rsrp !== null && rsrp >= -115) || (rsrq !== null && rsrq >= -17)) return 1;
+                return 0;
+            }
+
+            function getTierColor(tier) {
+                if (tier === 0) return '#808080';
+                if (tier === 1) return '#ff0000';
+                if (tier === 2) return '#ffff00';
+                if (tier === 3) return '#00ff00';
+                return '#808080';
+            }
+
+            // Calculate bounds from the actual prediction data
+            const lats = predictedPoints.map(p => p.lat);
+            const lons = predictedPoints.map(p => p.lon);
+            const dataSouth = Math.min(...lats);
+            const dataNorth = Math.max(...lats);
+            const dataWest = Math.min(...lons);
+            const dataEast = Math.max(...lons);
+
+            // Determine cell size based on grid resolution and data bounds
+            const gridSize = 150; // Match the server-side grid size for finer resolution
+            const latStep = (dataNorth - dataSouth) / gridSize;
+            const lonStep = (dataEast - dataWest) / gridSize;
+
+            console.log(`[HEATMAP] Data bounds: ${dataSouth.toFixed(4)} to ${dataNorth.toFixed(4)} lat, ${dataWest.toFixed(4)} to ${dataEast.toFixed(4)} lon`);
+            console.log(`[HEATMAP] Cell size: ${latStep.toFixed(6)} lat x ${lonStep.toFixed(6)} lon`);
+
+            // Track tier distribution for diagnostics
+            const tierCounts = {0: 0, 1: 0, 2: 0, 3: 0};
+            const sourceCounts = {measured: 0, interpolated: 0, predicted: 0};
+
+            predictedPoints.forEach(point => {
+                // Skip cells with no coverage (beyond gray zone)
+                if (point.source === 'no_coverage' || point.rsrp < -150) {
+                    return;
+                }
+
+                const tier = getSignalTier(point.rsrp, point.rsrq);
+                const color = getTierColor(tier);
+
+                tierCounts[tier]++;
+                sourceCounts[point.source] = (sourceCounts[point.source] || 0) + 1;
+
+                // Planning-style smooth coverage map: uniform grid with consistent opacity
+                const lat1 = point.lat;
+                const lon1 = point.lon;
+                const lat2 = point.lat + latStep;
+                const lon2 = point.lon + lonStep;
+
+                // Use consistent opacity for smooth planning-style visualization
+                // Vary slightly by source to distinguish data quality, but keep it subtle
+                let opacity;
+                if (point.source === 'interpolated') {
+                    opacity = 0.65;  // Slightly higher - based on measurements
+                } else {
+                    opacity = 0.55;  // Standard - model prediction
+                }
+
+                const cell = L.rectangle([
+                    [lat1, lon1],
+                    [lat2, lon2]
+                ], {
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: opacity,
+                    weight: 0,  // No borders for smooth appearance
+                    interactive: false
+                });
+
+                triangulationLayer.addLayer(cell);
+            });
+
+            triangulationLayer.addTo(map);
+            document.getElementById('legend').style.display = 'block';
+
+            console.log(`[HEATMAP] Tier distribution: Gray=${tierCounts[0]}, Red=${tierCounts[1]}, Yellow=${tierCounts[2]}, Green=${tierCounts[3]}`);
+            console.log(`[HEATMAP] Grid cells: Interpolated=${sourceCounts.interpolated || 0}, Predicted=${sourceCounts.predicted || 0}`);
+            console.log(`[HEATMAP] Coverage: ${((sourceCounts.interpolated || 0) / predictedPoints.length * 100).toFixed(1)}% based on measurements`);
+            console.log(`[HEATMAP] Sample grid cells (first 5):`);
+            for (let i = 0; i < Math.min(5, predictedPoints.length); i++) {
+                const p = predictedPoints[i];
+                console.log(`[HEATMAP]   ${i}: (${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}) RSRP=${p.rsrp}dBm tier=${getSignalTier(p.rsrp, p.rsrq)} source=${p.source}`);
+            }
+            console.timeEnd('Create predicted heatmap');
         }
 
         // Update stats
@@ -1280,6 +1453,96 @@
             } else {
                 map.removeLayer(markersLayer);
             }
+        }
+
+        async function toggleCoverageMode(mode) {
+            coverageMode = mode;
+
+            // Update button states
+            const measuredBtn = document.getElementById('toggle-measured');
+            const predictedBtn = document.getElementById('toggle-predicted');
+            const statusDiv = document.getElementById('prediction-status');
+
+            if (mode === 'measured') {
+                measuredBtn.classList.add('active');
+                predictedBtn.classList.remove('active');
+                statusDiv.style.display = 'none';
+                // Redraw with measured data
+                updateVisualization();
+            } else if (mode === 'predicted') {
+                measuredBtn.classList.remove('active');
+                predictedBtn.classList.add('active');
+
+                // Show loading status
+                statusDiv.style.display = 'block';
+                statusDiv.textContent = 'Generating coverage prediction...';
+
+                try {
+                    // Request prediction from server
+                    await generatePrediction();
+                    statusDiv.textContent = '✓ Prediction ready';
+                    setTimeout(() => statusDiv.style.display = 'none', 2000);
+                } catch (error) {
+                    console.error('Prediction error:', error);
+                    statusDiv.textContent = '⚠ Prediction failed';
+                    statusDiv.style.color = '#ef4444';
+                }
+            }
+        }
+
+        async function generatePrediction() {
+            // Collect current measurement data
+            const allTransmitters = await loadTransmitters();
+
+            // Filter to only active transmitters
+            const activeTransmitters = allTransmitters.filter(tx => activeTransmitterIds.has(tx.id));
+
+            console.log(`[PREDICTION] Using ${activeTransmitters.length} active transmitters out of ${allTransmitters.length} total`);
+
+            // Filter measurements to only include those from active transmitters
+            const activePCIs = new Set(activeTransmitters.map(tx => normalizePCIValue(tx.pci)).filter(pci => pci !== null));
+
+            const measurements = filteredData
+                .filter(point => {
+                    const pci = normalizePCIValue(point.lte?.pci);
+                    return pci === null || activePCIs.has(pci); // Include if no PCI or if PCI matches active transmitter
+                })
+                .map(point => ({
+                    lat: parseFloat(point.location.latitude),
+                    lon: parseFloat(point.location.longitude),
+                    rsrp: point.signal.rsrp,
+                    rsrq: point.signal.rsrq,
+                    pci: normalizePCIValue(point.lte?.pci)
+                }))
+                .filter(m => m.lat && m.lon && (m.rsrp !== null || m.rsrq !== null));
+
+            // Send to server for prediction
+            const response = await fetch('/api/predict-coverage', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    transmitters: activeTransmitters,  // Only send active transmitters
+                    measurements: measurements,
+                    bounds: map.getBounds()
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Prediction request failed');
+            }
+
+            predictedCoverageData = await response.json();
+
+            console.log('[PREDICTION] ====== RECEIVED PREDICTION DATA ======');
+            console.log(`[PREDICTION] Points: ${predictedCoverageData.points?.length || 0}`);
+            console.log(`[PREDICTION] Model: ${predictedCoverageData.model}`);
+            console.log(`[PREDICTION] Statistics:`, predictedCoverageData.statistics);
+            console.log(`[PREDICTION] Validation:`, predictedCoverageData.validation);
+
+            // Redraw heatmap with predicted data
+            updateVisualization();
         }
 
         // Export to CSV

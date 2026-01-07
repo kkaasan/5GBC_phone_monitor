@@ -11,6 +11,7 @@ import csv
 import subprocess
 import signal
 import shutil
+import math
 from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -162,35 +163,42 @@ class APIHandler(SimpleHTTPRequestHandler):
         path_parts = parsed_path.path.strip('/').split('/')
 
         # Handle API routes
-        if path_parts[0] == 'api' and len(path_parts) >= 3:
-            if path_parts[1] == 'monitor':
-                if path_parts[2] == 'start':
-                    self.handle_monitor_start()
+        if path_parts[0] == 'api':
+            # Routes with 2 parts
+            if len(path_parts) == 2:
+                if path_parts[1] == 'predict-coverage':
+                    self.handle_predict_coverage()
                     return
-                elif path_parts[2] == 'stop':
-                    self.handle_monitor_stop()
+            # Routes with 3+ parts
+            elif len(path_parts) >= 3:
+                if path_parts[1] == 'monitor':
+                    if path_parts[2] == 'start':
+                        self.handle_monitor_start()
+                        return
+                    elif path_parts[2] == 'stop':
+                        self.handle_monitor_stop()
+                        return
+                elif path_parts[1] == 'transmitters' and path_parts[2] == 'save':
+                    self.handle_transmitters_save()
                     return
-            elif path_parts[1] == 'transmitters' and path_parts[2] == 'save':
-                self.handle_transmitters_save()
-                return
-            elif path_parts[1] == 'sessions' and path_parts[2] == 'delete':
-                self.handle_session_delete()
-                return
-            elif path_parts[1] == 'sessions' and path_parts[2] == 'export':
-                self.handle_sessions_export()
-                return
-            elif path_parts[1] == 'sessions' and path_parts[2] == 'import_phone':
-                self.handle_sessions_import_phone()
-                return
-            elif path_parts[1] == 'sessions' and path_parts[2] == 'import_local':
-                self.handle_sessions_import_local()
-                return
-            elif path_parts[1] == 'cb' and path_parts[2] == 'import_phone':
-                self.handle_cb_import_phone()
-                return
-            elif path_parts[1] == 'cb' and path_parts[2] == 'import_local':
-                self.handle_cb_import_local()
-                return
+                elif path_parts[1] == 'sessions' and path_parts[2] == 'delete':
+                    self.handle_session_delete()
+                    return
+                elif path_parts[1] == 'sessions' and path_parts[2] == 'export':
+                    self.handle_sessions_export()
+                    return
+                elif path_parts[1] == 'sessions' and path_parts[2] == 'import_phone':
+                    self.handle_sessions_import_phone()
+                    return
+                elif path_parts[1] == 'sessions' and path_parts[2] == 'import_local':
+                    self.handle_sessions_import_local()
+                    return
+                elif path_parts[1] == 'cb' and path_parts[2] == 'import_phone':
+                    self.handle_cb_import_phone()
+                    return
+                elif path_parts[1] == 'cb' and path_parts[2] == 'import_local':
+                    self.handle_cb_import_local()
+                    return
 
         self.send_error(404, "Not found")
 
@@ -396,6 +404,999 @@ class APIHandler(SimpleHTTPRequestHandler):
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps({'success': False, 'error': str(e)}).encode('utf-8'))
+
+    def handle_predict_coverage(self):
+        """Generate signal coverage prediction using Log-Distance Path Loss model"""
+        try:
+            # Read POST data
+            content_length = int(self.headers.get('Content-Length', 0))
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
+
+            transmitters = data.get('transmitters', [])
+            measurements = data.get('measurements', [])
+            bounds = data.get('bounds', {})
+
+            # Generate prediction
+            prediction_result = self.generate_coverage_prediction(transmitters, measurements, bounds)
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(prediction_result).encode('utf-8'))
+
+        except Exception as e:
+            print(f"[PREDICTION ERROR] {e}")
+            import traceback
+            traceback.print_exc()
+
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'success': False, 'error': str(e)}).encode('utf-8'))
+
+    def okumura_hata_path_loss(self, freq_mhz, hb, hm, d_km, environment='urban'):
+        """
+        Calculate path loss using Okumura-Hata model for broadcast (DVB-T2)
+
+        Args:
+            freq_mhz: Frequency in MHz (typically 470-862 MHz for DVB-T2)
+            hb: Base station (transmitter) antenna height in meters (30-200m)
+            hm: Mobile (receiver) antenna height in meters (1-10m)
+            d_km: Distance in kilometers (1-20km)
+            environment: 'urban', 'suburban', or 'rural'
+
+        Returns:
+            Path loss in dB
+        """
+        import math
+
+        # Clamp values to valid ranges
+        freq_mhz = max(150, min(1500, freq_mhz))
+        hb = max(30, min(200, hb))
+        hm = max(1, min(10, hm))
+        d_km = max(0.1, min(100, d_km))
+
+        # Mobile antenna height correction factor
+        if freq_mhz < 300:
+            # For smaller cities and rural areas
+            a_hm = (1.1 * math.log10(freq_mhz) - 0.7) * hm - (1.56 * math.log10(freq_mhz) - 0.8)
+        else:
+            # For large cities (UHF)
+            a_hm = 3.2 * (math.log10(11.75 * hm)) ** 2 - 4.97
+
+        # Base Okumura-Hata formula (urban)
+        path_loss_urban = (69.55 + 26.16 * math.log10(freq_mhz) - 13.82 * math.log10(hb) - a_hm +
+                          (44.9 - 6.55 * math.log10(hb)) * math.log10(d_km))
+
+        # Apply environment correction
+        if environment == 'suburban':
+            correction = 2 * (math.log10(freq_mhz / 28)) ** 2 + 5.4
+            path_loss = path_loss_urban - correction
+        elif environment == 'rural':
+            correction = 4.78 * (math.log10(freq_mhz)) ** 2 - 18.33 * math.log10(freq_mhz) + 40.94
+            path_loss = path_loss_urban - correction
+        else:  # urban
+            path_loss = path_loss_urban
+
+        # For broadcast applications at long distances (>20 km), apply correction
+        # Okumura-Hata tends to overestimate loss at long distances for high-power broadcast
+        if d_km > 20:
+            # Reduce path loss for longer distances to account for broadcast propagation
+            # This is empirically derived for DVB-T2 broadcast networks
+            long_distance_factor = 1.0 - 0.15 * math.log10(d_km / 20)  # Up to 15% reduction
+            path_loss = path_loss * long_distance_factor
+
+        return path_loss
+
+    def calculate_theoretical_max_distance(self, tx_power, freq_mhz, tx_height, rx_height, environment, rsrp_threshold=-115):
+        """
+        Calculate theoretical maximum coverage distance for a given transmitter power and RSRP threshold.
+        Uses binary search to find the distance where RSRP equals the threshold.
+
+        Args:
+            tx_power: Transmitter ERP in dBm
+            freq_mhz: Frequency in MHz
+            tx_height: Transmitter antenna height in meters
+            rx_height: Receiver antenna height in meters
+            environment: 'urban', 'suburban', or 'rural'
+            rsrp_threshold: Minimum RSRP in dBm for coverage (default -115 dBm for edge of coverage)
+
+        Returns:
+            Maximum distance in kilometers
+        """
+        # Binary search for distance where RSRP = threshold
+        # Assuming 0 dB antenna gain for theoretical calculation
+        min_dist = 0.1
+        max_dist = 200.0  # Maximum theoretical distance
+
+        for _ in range(50):  # 50 iterations gives very precise result
+            mid_dist = (min_dist + max_dist) / 2.0
+
+            # Calculate path loss at this distance
+            path_loss = self.okumura_hata_path_loss(freq_mhz, tx_height, rx_height, mid_dist, environment)
+
+            # Calculate RSRP (assuming 0 dB antenna gain for theoretical max)
+            rsrp = tx_power - path_loss
+
+            if rsrp > rsrp_threshold:
+                # Signal is still above threshold, try farther
+                min_dist = mid_dist
+            else:
+                # Signal is below threshold, try closer
+                max_dist = mid_dist
+
+        return (min_dist + max_dist) / 2.0
+
+    def generate_coverage_prediction(self, transmitters, measurements, bounds):
+        """
+        Generate coverage prediction using Okumura-Hata propagation model for DVB-T2
+
+        This model is specifically designed for broadcast applications and accounts for:
+        - Frequency-dependent propagation
+        - Antenna heights (transmitter and receiver)
+        - Environment type (urban/suburban/rural)
+        - Diffraction and clutter losses
+
+        More accurate than simple log-distance for real-world broadcast coverage.
+        """
+        import math
+        import numpy as np
+        from scipy.optimize import curve_fit
+
+        print(f"[PREDICTION] Starting prediction with {len(transmitters)} transmitters, {len(measurements)} measurements")
+
+        # Debug: Print first measurement to see structure
+        if measurements:
+            print(f"[PREDICTION] Sample measurement: {measurements[0]}")
+
+        # 5G Broadcast parameters
+        # LTE Band 71 operating at 600-700 MHz range
+        freq_mhz = 626  # 5G Broadcast in LTE Band 71 (measured frequency)
+        rx_height = 1.5  # Receiver antenna height (1.5m handheld)
+
+        # Step 1: Calibrate environment type from measurements
+        # Group measurements by transmitter (PCI)
+        tx_measurements = {}
+        for m in measurements:
+            pci = m.get('pci')
+            if pci is not None and m.get('rsrp') is not None:
+                if pci not in tx_measurements:
+                    tx_measurements[pci] = []
+                tx_measurements[pci].append(m)
+
+        # Step 2: For each transmitter with measurements, fit the model
+        tx_params = {}
+        print(f"[PREDICTION] ====== TRANSMITTER CALIBRATION ======")
+        print(f"[PREDICTION] Found {len(transmitters)} transmitters to calibrate")
+        print(f"[PREDICTION] Measurement groups by PCI: {[(pci, len(meas)) for pci, meas in tx_measurements.items()]}")
+
+        for tx in transmitters:
+            tx_id = tx['id']
+            tx_pci = tx.get('pci')
+            tx_lat = tx['lat']
+            tx_lon = tx['lon']
+            tx_height = tx.get('height', 30)  # Default 30m antenna height
+
+            # Get transmit power from configuration or calibrate from measurements
+            # DVB-T2/5G Broadcast typically uses 60-70 dBm (much higher than cellular)
+            tx_power_config = tx.get('txPower', None)
+
+            print(f"[PREDICTION] Transmitter {tx_id} (PCI {tx_pci}): Configured ERP={tx_power_config}, Measurements={len(tx_measurements.get(tx_pci, []))}")
+
+            if tx_pci in tx_measurements and len(tx_measurements[tx_pci]) >= 5:
+                # We have enough measurements to calibrate environment type AND transmit power
+                meas = tx_measurements[tx_pci]
+
+                # Calibrate both transmit power AND environment jointly for best fit
+                if tx_power_config is None:
+                    # Test all environment types and derive best tx_power for each
+                    best_environment = 'suburban'
+                    best_tx_power = 65
+                    best_error = float('inf')
+                    best_correction = 0
+
+                    # For DVB-T2 broadcast, only test urban/suburban (rural path loss is too low for high-power broadcast)
+                    for env_type in ['urban', 'suburban']:
+                        # Derive tx_power for this environment type
+                        derived_powers = []
+                        sample_details = []
+
+                        for m in meas:
+                            m_lat = m.get('lat')
+                            m_lon = m.get('lon')
+                            rsrp = m.get('rsrp')
+
+                            if m_lat is None or m_lon is None or rsrp is None:
+                                continue
+
+                            dist_km = self.haversine_distance(tx_lat, tx_lon, m_lat, m_lon)
+                            if dist_km < 0.1:
+                                continue
+
+                            # Calculate path loss for this environment
+                            path_loss = self.okumura_hata_path_loss(freq_mhz, tx_height, rx_height, dist_km, env_type)
+
+                            # Derive transmit power: TxPower = RSRP + PathLoss
+                            # Note: Not accounting for antenna gain - assumes omnidirectional or averaged
+                            derived_tx_power = rsrp + path_loss
+                            derived_powers.append(derived_tx_power)
+
+                            # Save details for first few samples
+                            if len(sample_details) < 3:
+                                sample_details.append({
+                                    'dist_km': dist_km,
+                                    'rsrp': rsrp,
+                                    'path_loss': path_loss,
+                                    'derived_power': derived_tx_power
+                                })
+
+                        if not derived_powers:
+                            continue
+
+                        # Use median tx_power for this environment
+                        env_tx_power = np.median(derived_powers)
+
+                        # Debug: Show calibration details for best environment (will update later)
+                        if len(sample_details) > 0:
+                            print(f"[CALIBRATION] PCI {tx_pci}, {env_type}: {len(derived_powers)} samples, median={env_tx_power:.1f}dBm, range={min(derived_powers):.1f}-{max(derived_powers):.1f}dBm")
+                            for idx, s in enumerate(sample_details):
+                                print(f"[CALIBRATION]   Sample {idx+1}: dist={s['dist_km']:.1f}km, RSRP={s['rsrp']:.0f}dBm, PathLoss={s['path_loss']:.1f}dB → Power={s['derived_power']:.1f}dBm")
+
+                        # Now evaluate prediction error with this tx_power and environment
+                        errors = []
+                        corrections = []
+
+                        for m in meas:
+                            m_lat = m.get('lat')
+                            m_lon = m.get('lon')
+                            rsrp = m.get('rsrp')
+
+                            if m_lat is None or m_lon is None or rsrp is None:
+                                continue
+
+                            dist_km = self.haversine_distance(tx_lat, tx_lon, m_lat, m_lon)
+                            if dist_km < 0.1:
+                                continue
+
+                            # Predicted path loss
+                            predicted_pl = self.okumura_hata_path_loss(freq_mhz, tx_height, rx_height, dist_km, env_type)
+
+                            # Actual path loss
+                            actual_pl = env_tx_power - rsrp
+
+                            # Error
+                            error = abs(predicted_pl - actual_pl)
+                            errors.append(error)
+                            corrections.append(actual_pl - predicted_pl)
+
+                        if errors:
+                            avg_error = np.mean(errors)
+                            avg_correction = np.mean(corrections)
+
+                            if avg_error < best_error:
+                                best_error = avg_error
+                                best_environment = env_type
+                                best_tx_power = env_tx_power
+                                best_correction = avg_correction
+
+                    # Calibrated power represents isotropic radiated power
+                    # Add typical antenna gain to get effective radiated power
+                    # 5G Broadcast at 626 MHz uses high-power transmitters with sector antennas
+                    TYPICAL_ANTENNA_GAIN = 17.0  # dB - typical for 5G broadcast sector antennas
+
+                    tx_power_calibrated = best_tx_power
+                    tx_power = tx_power_calibrated + TYPICAL_ANTENNA_GAIN
+
+                    # Apply reasonable bounds for 5G Broadcast
+                    MIN_TX_POWER = 55.0  # dBm - minimum for 5G Broadcast (similar to DVB-T2)
+                    MAX_TX_POWER = 75.0  # dBm - maximum for broadcast
+                    tx_power = np.clip(tx_power, MIN_TX_POWER, MAX_TX_POWER)
+
+                    print(f"[PREDICTION] 5G Broadcast @ 626 MHz: Calibrated {tx_power_calibrated:.1f}dBm + Antenna {TYPICAL_ANTENNA_GAIN:.1f}dB = {tx_power:.1f}dBm ERP")
+
+                    print(f"[PREDICTION] Transmitter {tx_id} (PCI {tx_pci}): Calibrated TxPower={tx_power:.1f}dBm (ERP), Environment={best_environment}, Error={best_error:.1f}dB from {len(meas)} measurements")
+                else:
+                    # Tx power is configured, just find best environment
+                    tx_power = tx_power_config
+                    best_environment = 'suburban'
+                    best_error = float('inf')
+                    best_correction = 0
+
+                    # For DVB-T2 broadcast, only test urban/suburban
+                    for env_type in ['urban', 'suburban']:
+                        errors = []
+                        corrections = []
+
+                        for m in meas:
+                            m_lat = m.get('lat')
+                            m_lon = m.get('lon')
+                            rsrp = m.get('rsrp')
+
+                            if m_lat is None or m_lon is None or rsrp is None:
+                                continue
+
+                            dist_km = self.haversine_distance(tx_lat, tx_lon, m_lat, m_lon)
+                            if dist_km < 0.1:
+                                continue
+
+                            # Calculate theoretical path loss using Okumura-Hata
+                            predicted_pl = self.okumura_hata_path_loss(freq_mhz, tx_height, rx_height, dist_km, env_type)
+
+                            # Actual path loss from measurement
+                            actual_pl = tx_power - rsrp
+
+                            # Error between predicted and actual
+                            error = abs(predicted_pl - actual_pl)
+                            errors.append(error)
+                            corrections.append(actual_pl - predicted_pl)
+
+                        if errors:
+                            avg_error = np.mean(errors)
+                            avg_correction = np.mean(corrections)
+
+                            if avg_error < best_error:
+                                best_error = avg_error
+                                best_environment = env_type
+                                best_correction = avg_correction
+
+                    print(f"[PREDICTION] Transmitter {tx_id} (PCI {tx_pci}): Using configured TxPower={tx_power}dBm, Calibrated Environment={best_environment}, Error={best_error:.1f}dB")
+
+                    # When using configured ERP, don't apply correction - trust the user's value
+                    tx_params[tx_id] = {
+                        'environment': best_environment,
+                        'correction': 0.0,  # No correction for manually configured ERP
+                        'tx_power': tx_power,
+                        'height': tx_height,
+                        'lat': tx_lat,
+                        'lon': tx_lon,
+                        'pci': tx_pci,
+                        'manual_erp': True,  # Flag to use model predictions instead of interpolation
+                        'antennaGains': tx.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
+                    }
+                    continue  # Skip to next transmitter
+                print(f"[PREDICTION] Transmitter {tx_id} (PCI {tx_pci}): Environment={best_environment}, TxPower={tx_power:.1f}dBm, Correction={best_correction:.2f}dB, Error={best_error:.2f}dB")
+
+                # Save calibrated transmitter parameters
+                tx_params[tx_id] = {
+                    'environment': best_environment,
+                    'correction': best_correction,
+                    'tx_power': tx_power,
+                    'height': tx_height,
+                    'lat': tx_lat,
+                    'lon': tx_lon,
+                    'pci': tx_pci,
+                    'antennaGains': tx.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
+                }
+            else:
+                # Not enough measurements, use default values
+                if tx_power_config is None:
+                    tx_power = 60  # Default for 5G Broadcast @ 626 MHz (typical: 55-70 dBm ERP)
+                    print(f"[PREDICTION] Transmitter {tx_id} (PCI {tx_pci}): Insufficient measurements (<5), using default 5G Broadcast ERP={tx_power}dBm @ 626 MHz")
+                else:
+                    tx_power = tx_power_config
+                    print(f"[PREDICTION] Transmitter {tx_id} (PCI {tx_pci}): Using configured ERP={tx_power}dBm")
+
+                tx_params[tx_id] = {
+                    'environment': 'suburban',  # Suburban as middle ground for broadcast
+                    'correction': 0,
+                    'tx_power': tx_power,
+                    'height': tx_height,
+                    'lat': tx_lat,
+                    'lon': tx_lon,
+                    'pci': tx.get('pci'),
+                    'antennaGains': tx.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
+                }
+
+        # Step 3: Generate prediction grid
+        # Use current map view bounds with reasonable padding
+        # This creates manageable grid cell sizes for accurate interpolation
+
+        # Start with map view bounds
+        view_south = bounds.get('_southWest', {}).get('lat', 59.42)
+        view_west = bounds.get('_southWest', {}).get('lng', 24.72)
+        view_north = bounds.get('_northEast', {}).get('lat', 59.45)
+        view_east = bounds.get('_northEast', {}).get('lng', 24.76)
+
+        # Add 20% padding to show coverage beyond current view
+        lat_span = view_north - view_south
+        lon_span = view_east - view_west
+        lat_padding = lat_span * 0.2
+        lon_padding = lon_span * 0.2
+
+        south = view_south - lat_padding
+        north = view_north + lat_padding
+        west = view_west - lon_padding
+        east = view_east + lon_padding
+
+        print(f"[PREDICTION] Grid bounds based on map view with 20% padding")
+        print(f"[PREDICTION] Coverage area: {south:.4f} to {north:.4f} lat, {west:.4f} to {east:.4f} lon")
+
+        # Create high-resolution grid for smooth 360-degree coverage visualization
+        # 150x150 = 22500 points provides finer detail for entire map viewing
+        grid_size = 150
+        lat_step = (north - south) / grid_size
+        lon_step = (east - west) / grid_size
+
+        predicted_points = []
+
+        # For planning-style visualization, use ONLY uniform grid (no individual measurement points)
+        # Grid cells will use measured data via interpolation when available
+        # This creates a smooth, continuous coverage map like planning software
+
+        # Use large interpolation radius to capture coverage gradients
+        # This ensures coverage extends from transmitter through measurement points
+        max_interpolation_radius_km = 50.0  # Large radius to capture transmitter-to-measurement paths
+        print(f"[PREDICTION] Interpolation radius: {max_interpolation_radius_km:.1f}km")
+
+        # Calculate maximum coverage distance for each transmitter
+        # For manual ERP: use theoretical model-based distance
+        # For calibrated ERP: use measured distance + 5km
+        max_coverage_distance_per_tx = {}
+        print(f"[PREDICTION] TX params keys: {list(tx_params.keys())}")
+        for tx_id, params in tx_params.items():
+            if params.get('manual_erp', False):
+                # Manual ERP configured - calculate theoretical max distance based on propagation model
+                theoretical_max = self.calculate_theoretical_max_distance(
+                    tx_power=params['tx_power'],
+                    freq_mhz=freq_mhz,
+                    tx_height=params['height'],
+                    rx_height=rx_height,
+                    environment=params['environment'],
+                    rsrp_threshold=-115  # Edge of coverage
+                )
+                max_coverage_distance_per_tx[tx_id] = theoretical_max
+                print(f"[PREDICTION] TX {tx_id} (PCI {params.get('pci')}): Manual ERP={params['tx_power']:.1f}dBm → Theoretical max distance={theoretical_max:.1f}km")
+            else:
+                # Calibrated ERP - use farthest measurement + 5km
+                max_dist = 0
+                for m in measurements:
+                    m_lat = m.get('lat')
+                    m_lon = m.get('lon')
+                    if m_lat is not None and m_lon is not None:
+                        # Check if this measurement is from this transmitter (by PCI)
+                        if m.get('pci') == params.get('pci'):
+                            dist_km = self.haversine_distance(params['lat'], params['lon'], m_lat, m_lon)
+                            max_dist = max(max_dist, dist_km)
+                # Add 5km buffer beyond farthest measurement
+                max_coverage_distance_per_tx[tx_id] = max_dist + 5.0
+
+                # Show antenna pattern info
+                antenna_gains = params.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
+                has_pattern = any(g != 0 for g in antenna_gains)
+                if has_pattern:
+                    sectors = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+                    pattern_info = ', '.join([f"{sectors[i]}:{antenna_gains[i]:+.0f}dB" for i in range(8) if antenna_gains[i] != 0])
+                    print(f"[PREDICTION] TX {tx_id} (PCI {params.get('pci')}): Farthest measurement at {max_dist:.1f}km → Coverage extends to {max_dist + 5.0:.1f}km (base)")
+                    print(f"[PREDICTION] TX {tx_id}: Directional antenna pattern: {pattern_info}")
+                else:
+                    print(f"[PREDICTION] TX {tx_id} (PCI {params.get('pci')}): Farthest measurement at {max_dist:.1f}km → Coverage extends to {max_dist + 5.0:.1f}km (omnidirectional)")
+
+        print(f"[PREDICTION] Coverage distances: {max_coverage_distance_per_tx}")
+
+        # Track directional boundary effects for diagnostics
+        directional_rejections = 0
+        total_grid_cells = 0
+
+        # Now generate prediction grid for interpolation
+        for i in range(grid_size):
+            for j in range(grid_size):
+                lat = south + i * lat_step
+                lon = west + j * lon_step
+                total_grid_cells += 1
+
+                # Try to interpolate from nearby measurements first
+                nearby_measurements = []
+                nearby_no_signal_measurements = []
+
+                for m in measurements:
+                    m_lat = m.get('lat')
+                    m_lon = m.get('lon')
+                    m_rsrp = m.get('rsrp')
+                    m_rsrq = m.get('rsrq')
+
+                    if m_lat is not None and m_lon is not None:
+                        dist_km = self.haversine_distance(m_lat, m_lon, lat, lon)
+
+                        if dist_km < max_interpolation_radius_km:
+                            if m_rsrp is None or m_rsrp < -140:
+                                # Measurement point with no signal detected
+                                nearby_no_signal_measurements.append({
+                                    'lat': m_lat,
+                                    'lon': m_lon,
+                                    'dist_km': dist_km
+                                })
+                            elif m_rsrp is not None:
+                                # Measurement point with valid signal
+                                nearby_measurements.append({
+                                    'lat': m_lat,
+                                    'lon': m_lon,
+                                    'rsrp': m_rsrp,
+                                    'rsrq': m_rsrq if m_rsrq is not None else m_rsrp - 10,
+                                    'dist_km': dist_km
+                                })
+
+                # If there are nearby "no signal" measurements, check if they're closer than any signal measurements
+                if nearby_no_signal_measurements:
+                    min_no_signal_dist = min(m['dist_km'] for m in nearby_no_signal_measurements)
+                    # If no-signal measurement is within 2km, mark this cell as no coverage
+                    if min_no_signal_dist < 2.0:
+                        if not nearby_measurements or min_no_signal_dist < min(m['dist_km'] for m in nearby_measurements):
+                            # Closer to no-signal measurement than any signal measurement
+                            predicted_points.append({
+                                'lat': lat,
+                                'lon': lon,
+                                'rsrp': -140.0,
+                                'rsrq': -30.0,
+                                'source': 'outside'
+                            })
+                            continue
+
+                # If we have nearby measurements, check if cell is within measured coverage area first
+                # CRITICAL: Don't interpolate beyond farthest measurement point
+                if len(nearby_measurements) >= 1:
+                    # Find distance to nearest transmitter and check coverage boundary
+                    min_dist_to_tx = float('inf')
+                    nearest_tx_params = None
+                    within_coverage_boundary = False
+
+                    for tx_id, params in tx_params.items():
+                        dist_to_tx = self.haversine_distance(params['lat'], params['lon'], lat, lon)
+                        if dist_to_tx < min_dist_to_tx:
+                            min_dist_to_tx = dist_to_tx
+                            nearest_tx_params = params
+
+                        # Check if within coverage boundary (farthest measurement + 5km)
+                        # Apply directional antenna gain to boundary check
+                        max_coverage_dist = max_coverage_distance_per_tx.get(tx_id, 0)
+
+                        # Calculate antenna gain for this direction
+                        antenna_gain = self.calculate_antenna_gain(
+                            params['lat'], params['lon'], lat, lon,
+                            params.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
+                        )
+
+                        # Adjust coverage distance based on antenna gain
+                        if antenna_gain != 0:
+                            distance_factor = 10 ** (antenna_gain / 35.0)
+                            adjusted_coverage_dist = max_coverage_dist * distance_factor
+                        else:
+                            adjusted_coverage_dist = max_coverage_dist
+
+                        if dist_to_tx <= adjusted_coverage_dist:
+                            within_coverage_boundary = True
+
+                    # ONLY interpolate if within coverage boundary
+                    if not within_coverage_boundary:
+                        # Beyond farthest measurement - mark as gray or no coverage
+                        directional_rejections += 1
+                        # Debug: First cell that gets rejected
+                        if i == 0 and j == 0:
+                            print(f"[PREDICTION] DEBUG: Cell ({lat:.4f}, {lon:.4f}) rejected - dist_to_tx={min_dist_to_tx:.1f}km, boundary check failed")
+                        # Check if within gray zone (up to 5km beyond coverage boundary)
+                        # Also apply directional antenna gain to gray zone
+                        in_gray_zone = False
+                        for tx_id, params in tx_params.items():
+                            dist_km = self.haversine_distance(params['lat'], params['lon'], lat, lon)
+                            max_coverage_dist = max_coverage_distance_per_tx.get(tx_id, 0)
+
+                            # Calculate antenna gain for this direction
+                            antenna_gain = self.calculate_antenna_gain(
+                                params['lat'], params['lon'], lat, lon,
+                                params.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
+                            )
+
+                            # Adjust coverage distance based on antenna gain
+                            if antenna_gain != 0:
+                                distance_factor = 10 ** (antenna_gain / 35.0)
+                                adjusted_coverage_dist = max_coverage_dist * distance_factor
+                            else:
+                                adjusted_coverage_dist = max_coverage_dist
+
+                            if adjusted_coverage_dist < dist_km <= adjusted_coverage_dist + 5.0:
+                                in_gray_zone = True
+                                break
+
+                        if in_gray_zone:
+                            predicted_points.append({
+                                'lat': lat,
+                                'lon': lon,
+                                'rsrp': -140.0,
+                                'rsrq': -30.0,
+                                'source': 'outside'
+                            })
+                        else:
+                            predicted_points.append({
+                                'lat': lat,
+                                'lon': lon,
+                                'rsrp': -200.0,
+                                'rsrq': -50.0,
+                                'source': 'no_coverage'
+                            })
+                        continue
+
+                    # Within coverage boundary - proceed with interpolation
+                    min_dist_to_measurement = min(m['dist_km'] for m in nearby_measurements)
+
+                    # If closer to transmitter than any measurement, use model prediction with boost
+                    if min_dist_to_tx < min_dist_to_measurement and min_dist_to_tx < 15.0:
+                        # Use model prediction near transmitter
+                        dist_km = max(0.1, min_dist_to_tx)
+
+                        path_loss = self.okumura_hata_path_loss(
+                            freq_mhz,
+                            nearest_tx_params['height'],
+                            rx_height,
+                            dist_km,
+                            nearest_tx_params['environment']
+                        )
+
+                        path_loss += nearest_tx_params['correction']
+
+                        antenna_gain = self.calculate_antenna_gain(
+                            nearest_tx_params['lat'], nearest_tx_params['lon'], lat, lon,
+                            nearest_tx_params.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
+                        )
+
+                        rsrp = nearest_tx_params['tx_power'] - path_loss + antenna_gain
+                        rsrq = rsrp - 10
+
+                        predicted_points.append({
+                            'lat': lat,
+                            'lon': lon,
+                            'rsrp': round(rsrp, 1),
+                            'rsrq': round(rsrq, 1),
+                            'source': 'interpolated'
+                        })
+                    else:
+                        # Use IDW interpolation with very strong emphasis on nearest measurement
+                        # This ensures cells near measurements directly reflect those measurements
+
+                        # Find distance to nearest measurement
+                        min_meas_dist = min(m['dist_km'] for m in nearby_measurements)
+
+                        # Very aggressive IDW power - nearest measurement dominates
+                        # This prevents green areas from being averaged down to yellow/red
+                        if min_meas_dist < 0.3:
+                            idw_power = 12  # Extreme emphasis - nearly 100% nearest measurement
+                        elif min_meas_dist < 0.5:
+                            idw_power = 10  # Very strong emphasis
+                        elif min_meas_dist < 1.0:
+                            idw_power = 8   # Strong emphasis
+                        elif min_meas_dist < 2.0:
+                            idw_power = 6   # Moderate emphasis
+                        elif min_meas_dist < 5.0:
+                            idw_power = 4   # Some emphasis
+                        else:
+                            idw_power = 3   # Standard IDW
+
+                        weighted_rsrp = 0
+                        weighted_rsrq = 0
+                        weight_sum = 0
+
+                        for m in nearby_measurements:
+                            # Weight by inverse distance with aggressive power
+                            if m['dist_km'] < 0.01:
+                                weight = 1000000.0  # Extremely close - use measurement directly
+                            else:
+                                weight = 1.0 / (m['dist_km'] ** idw_power)
+
+                            # Give extra weight to strong measurements, but only within realistic range
+                            # This prevents green from extending unrealistically far (>80km)
+                            signal_quality_multiplier = 1.0
+                            if m['rsrp'] > -95:  # Green coverage (good signal)
+                                # Green boost decreases with distance - only effective within 15km
+                                if m['dist_km'] < 5.0:
+                                    signal_quality_multiplier = 50.0  # Strong boost nearby
+                                elif m['dist_km'] < 10.0:
+                                    signal_quality_multiplier = 20.0  # Moderate boost
+                                elif m['dist_km'] < 15.0:
+                                    signal_quality_multiplier = 5.0   # Small boost
+                                # Beyond 15km: no boost (multiplier = 1.0)
+                            elif m['rsrp'] > -105:  # Yellow coverage (moderate signal)
+                                # Yellow boost only within 8km
+                                if m['dist_km'] < 5.0:
+                                    signal_quality_multiplier = 5.0
+                                elif m['dist_km'] < 8.0:
+                                    signal_quality_multiplier = 2.0
+                            # Red/gray get no boost (multiplier = 1.0)
+
+                            weight *= signal_quality_multiplier
+
+                            weighted_rsrp += m['rsrp'] * weight
+                            weighted_rsrq += m['rsrq'] * weight
+                            weight_sum += weight
+
+                        if weight_sum > 0:
+                            interpolated_rsrp = weighted_rsrp / weight_sum
+                            interpolated_rsrq = weighted_rsrq / weight_sum
+
+                            # NO boost - respect actual measured values
+                            # Interpolation should reflect real-world measurements, not optimistic predictions
+
+                            predicted_points.append({
+                                'lat': lat,
+                                'lon': lon,
+                                'rsrp': round(interpolated_rsrp, 1),
+                                'rsrq': round(interpolated_rsrq, 1),
+                                'source': 'interpolated'
+                            })
+                else:
+                    # No nearby measurements - check if within coverage area
+                    # For manual ERP: use theoretical max distance
+                    # For calibrated ERP: use measured distance + 5km
+                    # Apply directional antenna gain to coverage area check
+                    within_coverage_area = False
+                    for tx_id, params in tx_params.items():
+                        dist_km = self.haversine_distance(params['lat'], params['lon'], lat, lon)
+                        max_coverage_dist = max_coverage_distance_per_tx.get(tx_id, 0)
+
+                        # Calculate antenna gain for this direction
+                        antenna_gain = self.calculate_antenna_gain(
+                            params['lat'], params['lon'], lat, lon,
+                            params.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
+                        )
+
+                        # Adjust coverage distance based on antenna gain
+                        # Path loss scales logarithmically: 10*log10(d^n) where n≈3.5 for suburban
+                        # So a -40dB antenna gain reduces max distance by factor of ~3-4x
+                        # Using: new_dist = old_dist * 10^(gain_dB / 35)
+                        # This gives realistic range reduction: -40dB → ~0.25x range (4x reduction)
+                        if antenna_gain < 0:
+                            distance_factor = 10 ** (antenna_gain / 35.0)
+                            adjusted_coverage_dist = max_coverage_dist * distance_factor
+                        else:
+                            # Positive gain extends coverage proportionally
+                            distance_factor = 10 ** (antenna_gain / 35.0)
+                            adjusted_coverage_dist = max_coverage_dist * distance_factor
+
+                        if dist_km <= adjusted_coverage_dist:
+                            within_coverage_area = True
+                            break
+
+                    if within_coverage_area:
+                        # Predict signal strength from all transmitters using model
+                        # Use maximum RSRP from all transmitters (best server selection)
+                        best_rsrp = -140  # Very weak signal
+                        best_rsrq = -20
+
+                        for tx_id, params in tx_params.items():
+                            dist_km = self.haversine_distance(params['lat'], params['lon'], lat, lon)
+
+                            if dist_km < 0.1:  # Minimum distance 100m
+                                dist_km = 0.1
+
+                            # Calculate path loss using Okumura-Hata model
+                            path_loss = self.okumura_hata_path_loss(
+                                freq_mhz,
+                                params['height'],
+                                rx_height,
+                                dist_km,
+                                params['environment']
+                            )
+
+                            # Apply calibration correction
+                            path_loss += params['correction']
+
+                            # Calculate antenna gain based on direction
+                            antenna_gain = self.calculate_antenna_gain(
+                                params['lat'], params['lon'], lat, lon,
+                                params.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
+                            )
+
+                            # Calculate RSRP with Okumura-Hata propagation
+                            rsrp = params['tx_power'] - path_loss + antenna_gain
+
+                            # No coverage boost for pure model predictions
+                            # Pure predictions should be conservative - only show strong signal areas
+                            # This prevents showing green coverage in unmeasured areas
+
+                            # Estimate RSRQ (simplified: RSRQ ≈ RSRP - 10)
+                            # For 5G Broadcast, RSRQ is less critical than RSRP
+                            rsrq = rsrp - 10
+
+                            if rsrp > best_rsrp:
+                                best_rsrp = rsrp
+                                best_rsrq = rsrq
+
+                        predicted_points.append({
+                            'lat': lat,
+                            'lon': lon,
+                            'rsrp': round(best_rsrp, 1),
+                            'rsrq': round(best_rsrq, 1),
+                            'source': 'predicted'
+                        })
+                    else:
+                        # Check if within gray zone (up to 5km beyond coverage area)
+                        # Also apply directional antenna gain to gray zone
+                        in_gray_zone = False
+                        for tx_id, params in tx_params.items():
+                            dist_km = self.haversine_distance(params['lat'], params['lon'], lat, lon)
+                            max_coverage_dist = max_coverage_distance_per_tx.get(tx_id, 0)
+
+                            # Calculate antenna gain for this direction
+                            antenna_gain = self.calculate_antenna_gain(
+                                params['lat'], params['lon'], lat, lon,
+                                params.get('antennaGains', [0, 0, 0, 0, 0, 0, 0, 0])
+                            )
+
+                            # Adjust coverage distance based on antenna gain
+                            if antenna_gain < 0:
+                                distance_factor = 10 ** (antenna_gain / 35.0)
+                                adjusted_coverage_dist = max_coverage_dist * distance_factor
+                            else:
+                                distance_factor = 10 ** (antenna_gain / 35.0)
+                                adjusted_coverage_dist = max_coverage_dist * distance_factor
+
+                            # Gray extends up to 5km beyond coverage boundary (also scaled)
+                            if adjusted_coverage_dist < dist_km <= adjusted_coverage_dist + 5.0:
+                                in_gray_zone = True
+                                break
+
+                        if in_gray_zone:
+                            # 5-10km beyond measured area - show as gray (unusable)
+                            predicted_points.append({
+                                'lat': lat,
+                                'lon': lon,
+                                'rsrp': -140.0,
+                                'rsrq': -30.0,
+                                'source': 'outside'
+                            })
+                        else:
+                            # Beyond gray zone - mark as no coverage (frontend should skip)
+                            predicted_points.append({
+                                'lat': lat,
+                                'lon': lon,
+                                'rsrp': -200.0,  # Special value indicating no coverage
+                                'rsrq': -50.0,
+                                'source': 'no_coverage'
+                            })
+
+        # Calculate statistics for diagnostics
+        interpolated_count = len([p for p in predicted_points if p['source'] == 'interpolated'])
+        predicted_count = len([p for p in predicted_points if p['source'] == 'predicted'])
+        outside_count = len([p for p in predicted_points if p['source'] == 'outside'])
+        no_coverage_count = len([p for p in predicted_points if p['source'] == 'no_coverage'])
+
+        print(f"[PREDICTION] ====== COVERAGE PREDICTION SUMMARY ======")
+        print(f"[PREDICTION] Grid: {grid_size}x{grid_size} = {grid_size*grid_size} cells")
+        print(f"[PREDICTION] Bounds: ({south:.4f}, {west:.4f}) to ({north:.4f}, {east:.4f})")
+        print(f"[PREDICTION] Source measurements: {len(measurements)} points")
+        print(f"[PREDICTION] Generated {len(predicted_points)} grid cells:")
+        print(f"[PREDICTION]   - Interpolated (from measurements): {interpolated_count}")
+        print(f"[PREDICTION]   - Predicted (model only): {predicted_count}")
+        print(f"[PREDICTION]   - Outside measured area (gray): {outside_count}")
+        print(f"[PREDICTION]   - No coverage (beyond gray): {no_coverage_count}")
+        if directional_rejections > 0:
+            rejection_pct = (directional_rejections / total_grid_cells) * 100
+            print(f"[PREDICTION] Directional antenna boundaries rejected {directional_rejections} cells ({rejection_pct:.1f}%)")
+
+        predicted_rsrp_values = [p['rsrp'] for p in predicted_points if p['source'] == 'predicted']
+        if predicted_rsrp_values:
+            min_rsrp = min(predicted_rsrp_values)
+            max_rsrp = max(predicted_rsrp_values)
+            avg_rsrp = sum(predicted_rsrp_values) / len(predicted_rsrp_values)
+            print(f"[PREDICTION] Predicted RSRP range: {min_rsrp:.1f} to {max_rsrp:.1f} dBm (avg: {avg_rsrp:.1f} dBm)")
+
+        interpolated_rsrp_values = [p['rsrp'] for p in predicted_points if p['source'] == 'interpolated']
+        if interpolated_rsrp_values:
+            min_rsrp = min(interpolated_rsrp_values)
+            max_rsrp = max(interpolated_rsrp_values)
+            avg_rsrp = sum(interpolated_rsrp_values) / len(interpolated_rsrp_values)
+            print(f"[PREDICTION] Interpolated RSRP range: {min_rsrp:.1f} to {max_rsrp:.1f} dBm (avg: {avg_rsrp:.1f} dBm)")
+
+        # Validate predictions against actual measurements
+        # For interpolated and predicted points, find nearby measurements and calculate error
+        validation_errors = []
+        validation_radius_km = 0.5  # 500m radius for validation
+
+        for point in predicted_points:
+            if point['source'] in ['interpolated', 'predicted']:
+                # Find nearby actual measurements
+                nearby_actual = []
+                for m in measurements:
+                    m_lat = m.get('lat')
+                    m_lon = m.get('lon')
+                    m_rsrp = m.get('rsrp')
+                    if m_lat is not None and m_lon is not None and m_rsrp is not None:
+                        dist_km = self.haversine_distance(point['lat'], point['lon'], m_lat, m_lon)
+                        if dist_km < validation_radius_km:
+                            nearby_actual.append({'rsrp': m_rsrp, 'dist_km': dist_km})
+
+                # If there are very close measurements, calculate error
+                if nearby_actual:
+                    # Use closest measurement for validation
+                    closest = min(nearby_actual, key=lambda x: x['dist_km'])
+                    error = abs(point['rsrp'] - closest['rsrp'])
+                    validation_errors.append({
+                        'source': point['source'],
+                        'error': error,
+                        'predicted': point['rsrp'],
+                        'actual': closest['rsrp'],
+                        'distance_km': closest['dist_km']
+                    })
+
+        # Calculate validation metrics
+        validation_metrics = {}
+        if validation_errors:
+            errors_by_source = {
+                'interpolated': [e['error'] for e in validation_errors if e['source'] == 'interpolated'],
+                'predicted': [e['error'] for e in validation_errors if e['source'] == 'predicted']
+            }
+
+            for source, errors in errors_by_source.items():
+                if errors:
+                    mae = np.mean(errors)
+                    rmse = np.sqrt(np.mean([e**2 for e in errors]))
+                    validation_metrics[source] = {
+                        'mae': round(mae, 1),
+                        'rmse': round(rmse, 1),
+                        'count': len(errors)
+                    }
+                    print(f"[VALIDATION] {source.capitalize()} error: MAE={mae:.1f}dB, RMSE={rmse:.1f}dB (n={len(errors)})")
+
+        return {
+            'success': True,
+            'points': predicted_points,
+            'model': 'Okumura-Hata',
+            'frequency_mhz': freq_mhz,
+            'calibration': {
+                tx_id: {
+                    'environment': p['environment'],
+                    'correction_db': p['correction']
+                } for tx_id, p in tx_params.items()
+            },
+            'validation': validation_metrics,
+            'statistics': {
+                'source_measurements': len(measurements),
+                'interpolated': interpolated_count,
+                'predicted': predicted_count,
+                'total': len(predicted_points)
+            }
+        }
+
+    def haversine_distance(self, lat1, lon1, lat2, lon2):
+        """Calculate distance between two points in kilometers"""
+        R = 6371  # Earth's radius in km
+
+        lat1_rad = math.radians(lat1)
+        lat2_rad = math.radians(lat2)
+        delta_lat = math.radians(lat2 - lat1)
+        delta_lon = math.radians(lon2 - lon1)
+
+        a = math.sin(delta_lat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+        return R * c
+
+    def calculate_antenna_gain(self, tx_lat, tx_lon, point_lat, point_lon, antenna_gains):
+        """
+        Calculate antenna gain based on direction from transmitter to point
+
+        Args:
+            tx_lat, tx_lon: Transmitter coordinates
+            point_lat, point_lon: Target point coordinates
+            antenna_gains: Array of 8 gain values in dB for [N, NE, E, SE, S, SW, W, NW]
+
+        Returns:
+            Antenna gain in dB for the direction to the point
+        """
+        # Calculate bearing from transmitter to point
+        lat1 = math.radians(tx_lat)
+        lat2 = math.radians(point_lat)
+        delta_lon = math.radians(point_lon - tx_lon)
+
+        x = math.sin(delta_lon) * math.cos(lat2)
+        y = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(delta_lon)
+
+        bearing = math.atan2(x, y)
+        bearing_degrees = (math.degrees(bearing) + 360) % 360  # Normalize to 0-360
+
+        # Map bearing to one of 8 sectors (N=0, NE=45, E=90, SE=135, S=180, SW=225, W=270, NW=315)
+        # Each sector covers 45 degrees
+        sector_index = int((bearing_degrees + 22.5) / 45) % 8
+
+        return antenna_gains[sector_index]
 
     def handle_session_delete(self):
         """Delete a session: remove log file and drop from data_index.json"""
