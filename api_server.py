@@ -1375,6 +1375,17 @@ class APIHandler(SimpleHTTPRequestHandler):
             'points': predicted_points,
             'model': 'Okumura-Hata',
             'frequency_mhz': freq_mhz,
+            'grid': {
+                'size': grid_size,
+                'bounds': {
+                    'south': south,
+                    'north': north,
+                    'west': west,
+                    'east': east
+                },
+                'lat_step': lat_step,
+                'lon_step': lon_step
+            },
             'calibration': {
                 tx_id: {
                     'environment': p['environment'],

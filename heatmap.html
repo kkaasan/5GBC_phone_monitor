@@ -1124,8 +1124,8 @@
             console.time('Call heatmap creation');
             if (showHeatmap) {
                 if (coverageMode === 'predicted' && predictedCoverageData) {
-                    // Use predicted coverage data
-                    createPredictedHeatmap(predictedCoverageData.points);
+                    // Use predicted coverage data (pass full object with grid info)
+                    createPredictedHeatmap(predictedCoverageData);
                 } else {
                     // Use measured data
                     createRFHeatmap(displayData);
@@ -1403,9 +1403,13 @@
         }
 
         // Create heatmap from predicted coverage data
-        function createPredictedHeatmap(predictedPoints) {
+        function createPredictedHeatmap(predictionData) {
             console.time('Create predicted heatmap');
             console.log('[HEATMAP] ====== PREDICTED HEATMAP VISUALIZATION ======');
+
+            const predictedPoints = predictionData.points || predictionData;
+            const grid = predictionData.grid;
+
             console.log(`[HEATMAP] Received ${predictedPoints.length} points from server`);
 
             // Clear old data
@@ -1430,20 +1434,14 @@
                 return '#808080';
             }
 
-            // Calculate bounds from the actual prediction data
-            const lats = predictedPoints.map(p => p.lat);
-            const lons = predictedPoints.map(p => p.lon);
-            const dataSouth = Math.min(...lats);
-            const dataNorth = Math.max(...lats);
-            const dataWest = Math.min(...lons);
-            const dataEast = Math.max(...lons);
+            // Use grid information from server for accurate cell sizing
+            const latStep = grid ? grid.lat_step : 0.01;
+            const lonStep = grid ? grid.lon_step : 0.01;
 
-            // Determine cell size based on grid resolution and data bounds
-            const gridSize = 150; // Match the server-side grid size for finer resolution
-            const latStep = (dataNorth - dataSouth) / gridSize;
-            const lonStep = (dataEast - dataWest) / gridSize;
-
-            console.log(`[HEATMAP] Data bounds: ${dataSouth.toFixed(4)} to ${dataNorth.toFixed(4)} lat, ${dataWest.toFixed(4)} to ${dataEast.toFixed(4)} lon`);
+            if (grid) {
+                console.log(`[HEATMAP] Server grid: ${grid.size}x${grid.size}`);
+                console.log(`[HEATMAP] Grid bounds: ${grid.bounds.south.toFixed(4)} to ${grid.bounds.north.toFixed(4)} lat, ${grid.bounds.west.toFixed(4)} to ${grid.bounds.east.toFixed(4)} lon`);
+            }
             console.log(`[HEATMAP] Cell size: ${latStep.toFixed(6)} lat x ${lonStep.toFixed(6)} lon`);
 
             // Track tier distribution for diagnostics
