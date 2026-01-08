@@ -360,6 +360,15 @@
                 if (response.ok) {
                     const data = await response.json();
                     transmitters = data.transmitters || [];
+
+                    // Ensure all transmitters have antenna configuration fields
+                    transmitters = transmitters.map(tx => ({
+                        ...tx,
+                        height: tx.height !== undefined ? tx.height : 30,
+                        txPower: tx.txPower !== undefined ? tx.txPower : null,
+                        antennaGains: tx.antennaGains || [0, 0, 0, 0, 0, 0, 0, 0]
+                    }));
+
                     transmitterIdCounter = Math.max(...transmitters.map(t => t.id), 0) + 1;
                 } else {
                     transmitters = [];
@@ -419,11 +428,43 @@
                                         <input type="number" min="0" max="503" id="pci-${tx.id}" value="${tx.pci || ''}" placeholder="PCI">
                                     </div>
                                 </div>
+                                <div style="margin-top: 12px;">
+                                    <label style="font-size: 11px; color: #666; display: block; margin-bottom: 4px;">Antenna Height (m)</label>
+                                    <input type="number" min="1" max="200" step="0.1" id="height-${tx.id}" value="${tx.height || 30}"
+                                           style="width: 100%; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                                </div>
+                                <div style="margin-top: 12px;">
+                                    <label style="font-size: 11px; color: #666; display: block; margin-bottom: 4px;">
+                                        ERP - Effective Radiated Power (dBm)
+                                        <span style="color: #64748b; font-weight: normal;">(leave empty for auto-calibration, typical: 50-80 dBm for DVB-T2)</span>
+                                    </label>
+                                    <input type="number" min="30" max="80" step="0.1" id="txpower-${tx.id}" value="${tx.txPower || ''}" placeholder="Auto"
+                                           style="width: 100%; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                                </div>
+                                <div style="margin-top: 12px;">
+                                    <label style="font-size: 11px; color: #666; display: block; margin-bottom: 8px;">📡 Antenna Gain Pattern (dB)</label>
+                                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
+                                        ${['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'].map((dir, idx) => {
+                                            const gains = tx.antennaGains || [0, 0, 0, 0, 0, 0, 0, 0];
+                                            return `
+                                                <div>
+                                                    <label style="font-size: 10px; color: #666; display: block; text-align: center;">${dir}</label>
+                                                    <input type="number" step="0.1" id="gain-${tx.id}-${idx}" value="${gains[idx] || 0}"
+                                                           style="width: 100%; padding: 3px; border: 1px solid #cbd5e1; border-radius: 3px; text-align: center; font-size: 11px;">
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     `;
                 } else {
                     const pciDisplay = tx.pci ? `<span class="transmitter-pci">PCI: ${tx.pci}</span>` : '<span style="color: #ef4444; font-size: 11px; margin-left: 8px;">⚠️ No PCI</span>';
+                    const height = tx.height || 30;
+                    const gains = tx.antennaGains || [0, 0, 0, 0, 0, 0, 0, 0];
+                    const hasCustomGains = gains.some(g => g !== 0);
+
                     return `
                         <div class="transmitter-item ${isSelected ? 'selected' : ''}" data-id="${tx.id}"
                              onclick="selectTransmitter(${tx.id})">
@@ -439,6 +480,9 @@
                             </div>
                             <div class="transmitter-coords">
                                 📍 ${tx.lat.toFixed(6)}, ${tx.lon.toFixed(6)}
+                                <div style="margin-top: 6px; font-size: 11px; color: #64748b;">
+                                    📏 Height: ${height}m ${hasCustomGains ? '| 📡 Custom antenna pattern' : '| 📡 Omnidirectional'}
+                                </div>
                             </div>
                         </div>
                     `;
@@ -494,7 +538,10 @@
                 name: `Transmitter ${transmitters.length + 1}`,
                 lat: lat,
                 lon: lon,
-                pci: null
+                pci: null,
+                height: 30,
+                txPower: null,  // Auto-calibrate from measurements
+                antennaGains: [0, 0, 0, 0, 0, 0, 0, 0]
             };
             transmitters.push(newTx);
             renderTransmitters();
@@ -536,6 +583,21 @@
                 tx.lon = parseFloat(document.getElementById(`lon-${id}`).value);
                 const pciValue = document.getElementById(`pci-${id}`).value;
                 tx.pci = pciValue ? parseInt(pciValue) : null;
+
+                // Save antenna height
+                const heightValue = document.getElementById(`height-${id}`).value;
+                tx.height = heightValue ? parseFloat(heightValue) : 30;
+
+                // Save transmit power (optional, null for auto-calibration)
+                const txPowerValue = document.getElementById(`txpower-${id}`).value;
+                tx.txPower = txPowerValue ? parseFloat(txPowerValue) : null;
+
+                // Save antenna gains
+                tx.antennaGains = [];
+                for (let i = 0; i < 8; i++) {
+                    const gainValue = document.getElementById(`gain-${id}-${i}`).value;
+                    tx.antennaGains.push(gainValue ? parseFloat(gainValue) : 0);
+                }
             }
             editingTransmitterId = null;
             renderTransmitters();

@@ -50,7 +50,7 @@ trap cleanup INT TERM
 # Start web server
 echo "🌐 Starting web server..."
 {
-    python3 api_server.py 8888 2>&1 | while IFS= read -r line; do
+    python3 -u api_server.py 8888 2>&1 | while IFS= read -r line; do
         echo "[SERVER]  $line"
     done
 } &

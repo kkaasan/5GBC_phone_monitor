@@ -1238,14 +1238,64 @@ class APIHandler(SimpleHTTPRequestHandler):
                             interpolated_rsrp = weighted_rsrp / weight_sum
                             interpolated_rsrq = weighted_rsrq / weight_sum
 
-                            # NO boost - respect actual measured values
-                            # Interpolation should reflect real-world measurements, not optimistic predictions
+                            # CRITICAL FIX: Prevent weak distant measurements from suppressing signal near transmitter
+                            # If nearest measurements are far away (>15km) AND interpolation gives weak signal,
+                            # check if model prediction is much stronger (cell is actually close to transmitter)
+                            # This fixes the "gray gap" between green transmitter area and red edge measurements
+
+                            final_rsrp = interpolated_rsrp
+                            final_rsrq = interpolated_rsrq
+
+                            # Check if nearest measurement is far AND interpolated signal is weak
+                            if min_meas_dist > 15.0 and interpolated_rsrp < -95:
+                                # Calculate what the model predicts for this location
+                                model_rsrp = -140  # Default very weak
+
+                                for tx_id, params in tx_params.items():
+                                    dist_to_tx = cell_tx_distances[tx_id]
+                                    if dist_to_tx < 0.1:
+                                        dist_to_tx = 0.1
+
+                                    # Calculate path loss using same model as predictions
+                                    path_loss = self.okumura_hata_path_loss(
+                                        freq_mhz,
+                                        params['height'],
+                                        rx_height,
+                                        dist_to_tx,
+                                        params['environment']
+                                    )
+                                    path_loss += params['correction']
+
+                                    # Apply antenna gain
+                                    antenna_gain = cell_antenna_gains[tx_id]
+                                    tx_rsrp = params['tx_power'] - path_loss + antenna_gain
+
+                                    # Best server selection
+                                    if tx_rsrp > model_rsrp:
+                                        model_rsrp = tx_rsrp
+
+                                # If model predicts MUCH stronger signal than interpolation (>15dB difference),
+                                # it means we're in the gap between transmitter and far measurements
+                                # Use weighted blend: closer to TX → more model weight
+                                if model_rsrp - interpolated_rsrp > 15.0:
+                                    # Blend based on distance to nearest measurement
+                                    # Far from measurements (>30km) → 80% model, 20% interpolation
+                                    # Medium distance (15-30km) → 50% model, 50% interpolation
+                                    if min_meas_dist > 30.0:
+                                        model_weight = 0.8
+                                    elif min_meas_dist > 20.0:
+                                        model_weight = 0.6
+                                    else:
+                                        model_weight = 0.5
+
+                                    final_rsrp = model_weight * model_rsrp + (1 - model_weight) * interpolated_rsrp
+                                    final_rsrq = final_rsrp - 10  # Approximate RSRQ
 
                             predicted_points.append({
                                 'lat': lat,
                                 'lon': lon,
-                                'rsrp': round(interpolated_rsrp, 1),
-                                'rsrq': round(interpolated_rsrq, 1),
+                                'rsrp': round(final_rsrp, 1),
+                                'rsrq': round(final_rsrq, 1),
                                 'source': 'interpolated'
                             })
                 else:
@@ -1280,6 +1330,59 @@ class APIHandler(SimpleHTTPRequestHandler):
                             break
 
                     if within_coverage_area:
+                        # CRITICAL FIX: Check if there are weak measurements CLOSER to transmitter than this cell
+                        # This prevents predicting strong signal beyond areas where measurements show weak signal
+                        # This is especially important when zoomed in and transmitter is outside visible grid
+                        should_suppress_prediction = False
+
+                        # Find the nearest transmitter to this cell
+                        nearest_tx_id = None
+                        min_dist_to_tx = float('inf')
+                        for tx_id in tx_params.keys():
+                            dist_to_tx = cell_tx_distances[tx_id]
+                            if dist_to_tx < min_dist_to_tx:
+                                min_dist_to_tx = dist_to_tx
+                                nearest_tx_id = tx_id
+
+                        # Check if any measurements closer to the transmitter show weak signal
+                        # Use spatial index to check a broader area (up to 5x5 grid)
+                        if nearest_tx_id is not None:
+                            tx_params_nearest = tx_params[nearest_tx_id]
+                            tx_lat = tx_params_nearest['lat']
+                            tx_lon = tx_params_nearest['lon']
+
+                            # Check ALL measurements in spatial index to find any weak measurements
+                            # between this cell and the transmitter
+                            # This is critical when transmitter is outside visible grid (e.g., zoomed in on edge)
+                            weak_measurement_found = False
+                            for key in spatial_index:
+                                if weak_measurement_found:
+                                    break
+                                for m in spatial_index[key]:
+                                    m_lat = m.get('lat')
+                                    m_lon = m.get('lon')
+                                    m_rsrp = m.get('rsrp')
+                                    if m_lat is not None and m_lon is not None and m_rsrp is not None:
+                                        # Distance from measurement to transmitter
+                                        m_dist_to_tx = self.haversine_distance(tx_lat, tx_lon, m_lat, m_lon)
+                                        # If measurement is closer to TX and has weak signal
+                                        if m_dist_to_tx < min_dist_to_tx and m_rsrp < -105:
+                                            weak_measurement_found = True
+                                            break
+
+                            should_suppress_prediction = weak_measurement_found
+
+                        # If there are weak measurements between here and transmitter, mark as gray
+                        if should_suppress_prediction:
+                            predicted_points.append({
+                                'lat': lat,
+                                'lon': lon,
+                                'rsrp': -140.0,
+                                'rsrq': -30.0,
+                                'source': 'outside'
+                            })
+                            continue
+
                         # Predict signal strength from all transmitters using model
                         # Use maximum RSRP from all transmitters (best server selection)
                         best_rsrp = -140  # Very weak signal

@@ -2,7 +2,7 @@
 
 Professional 5G Broadcast signal analysis and coverage mapping tool for real-time RSRP/RSRQ monitoring with GPS correlation and modulation threshold analysis.
 
-![Version](https://img.shields.io/badge/version-1.3.2-blue)
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
 ![Android](https://img.shields.io/badge/android-8.0+-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -195,7 +195,7 @@ You can:
 3. **Android Phone** with:
    - USB debugging enabled
    - Location services enabled
-   - 5G Broadcast capable device (recommended)
+   - N71 band supported device (required for 5G Broadcast)
 
 ### Installation
 
@@ -284,8 +284,99 @@ The dashboard loads all historical data from the current session on page load, s
 - **Export to CSV**: Download session data
 - **Collapsible Controls**: Clean interface with expandable control panel
 -- **Transmitter Filters**: Heatmap/markers honor active transmitters (by PCI); click tower icons to toggle coverage on/off. At least one transmitter with a configured PCI must be active to render the heatmap.
+- **🆕 Coverage Prediction Layer**: AI-powered RF propagation modeling for unmeasured areas (v2.0)
 
-### 4. Transmitter Settings (`settings.html`)
+### 4. Coverage Prediction (NEW in v2.0!)
+
+**Purpose:**
+- Predict signal coverage in areas where no measurements exist using advanced RF propagation modeling
+- Combine real measurement data with physics-based Okumura-Hata propagation model
+- Visualize complete coverage maps even with sparse measurement data
+
+**Features:**
+- 📡 **Okumura-Hata Propagation Model** - Industry-standard path loss calculations for 5G Broadcast (626 MHz)
+- 🎯 **Automatic Transmitter Calibration** - Derives transmit power and environment type from measurements
+- 🌍 **Environment-Aware** - Automatically detects urban vs suburban propagation characteristics
+- 📐 **Directional Antenna Support** - 8-sector antenna gain patterns affect coverage shape
+- 🧮 **Intelligent Interpolation** - IDW (Inverse Distance Weighting) with signal quality boosting
+- 🔀 **Hybrid Model** - Blends measurements with model predictions for smooth coverage gradients
+- 🎨 **Adaptive Grid Resolution** - Higher detail when zoomed in, optimized performance when zoomed out
+- ⚡ **Spatial Indexing** - Fast lookups using 20×20 grid hash table for millions of calculations
+
+**How It Works:**
+
+1. **Transmitter Calibration Phase:**
+   - Groups measurements by PCI (Physical Cell ID)
+   - Tests Okumura-Hata model with urban/suburban environments
+   - Derives best-fit transmit power (ERP in dBm) from measurements
+   - Calculates correction factor to match real-world propagation
+   - Example output: "Calibrated 26.5dBm + Antenna 17.0dB = 55.0dBm ERP"
+
+2. **Grid Generation:**
+   - Creates adaptive grid based on zoom level (100-150 cells per dimension)
+   - Applies 20% padding around visible map area
+   - Adjusts for latitude-dependent aspect ratio
+   - Builds spatial index for O(1) measurement lookups
+
+3. **Coverage Prediction for Each Cell:**
+   - **Near Measurements (within 50km):**
+     - Uses IDW interpolation with power 6-12 (nearest dominates)
+     - Applies signal quality multipliers (50x boost for green within 5km)
+     - Blends with model if measurements are far and weak
+   - **No Nearby Measurements:**
+     - Checks if within coverage area (farthest measurement + 5km)
+     - Prevents predictions beyond weak measurements (physically impossible)
+     - Uses Okumura-Hata model with antenna gain corrections
+     - Marks as gray if outside coverage boundary
+
+4. **Physical Correctness Checks:**
+   - Signal cannot get stronger farther from transmitter
+   - If weak measurements exist closer to tower, suppress strong predictions
+   - Prevents green "circles" appearing beyond red measurement zones
+
+**Performance Optimizations:**
+- Spatial index: 20×20 grid for fast measurement lookups
+- Cached calculations: Distance and antenna gain pre-computed per cell
+- Early exit: Cells beyond coverage boundary skipped immediately
+- Adaptive grids: Fewer cells at country view, more when zoomed in
+- Prediction times: ~2-8 seconds for 25,000-37,000 cells
+
+**Coverage Layer Types:**
+- 🟢 **Interpolated** - Based on nearby measurements using IDW
+- 🟡 **Predicted** - Model-based (Okumura-Hata) where no measurements exist
+- ⚫ **Gray Zone** - Beyond measured coverage area (5km buffer)
+- ⬛ **No Coverage** - Beyond theoretical range
+
+**Signal Classification in Predictions:**
+- 🟩 **Green (RSRP ≥ -95 dBm)**: 16-QAM capable, strong signal
+- 🟨 **Yellow (-105 to -95 dBm)**: Moderate signal, QPSK capable
+- 🟥 **Red (-115 to -105 dBm)**: Weak signal, edge of coverage
+- ⚫ **Gray (< -115 dBm)**: Unusable or no coverage
+
+**Usage:**
+1. Configure transmitters in Settings page (locations, heights, PCIs)
+2. Collect measurement data by driving/walking through coverage area
+3. Open heatmap and enable prediction layer (checkbox in controls)
+4. Coverage prediction calculates automatically for visible map area
+5. Zoom in/out to see adaptive detail (consistent predictions across zoom levels)
+6. Prediction layer updates on pan/zoom with smooth loading
+
+**Technical Details:**
+- **Model**: Okumura-Hata (modified for broadcast at 626 MHz)
+- **Frequency**: 626 MHz (LTE Band 71 - 5G Broadcast)
+- **RX Height**: 1.5m (handheld device)
+- **TX Height**: 30-300m (configured per transmitter)
+- **Path Loss Exponent**: ~3.5 (suburban), ~4.0 (urban)
+- **Interpolation Radius**: 50km
+- **Coverage Extension**: Farthest measurement + 5km
+- **Grid Sizes**: 100-150 cells (auto-adjusted by zoom)
+
+**Validation:**
+- Interpolation error: MAE 0.3-1.0 dB, RMSE 0.8-2.5 dB
+- Cross-validation against held-out measurements
+- Logged in server console during prediction
+
+### 5. Transmitter Settings (`settings.html`)
 
 **Purpose:**
 - Configure transmitter locations and PCIs to drive **transmitter-aware interpolation** in the heatmap.
@@ -305,7 +396,7 @@ The dashboard loads all historical data from the current session on page load, s
 - 🟥 **QPSK Reception**: RSRP ≥ -115 dBm OR RSRQ ≥ -17 dB
 - ⚫ **Unusable**: RSRP < -120 dBm AND RSRQ < -20 dB
 
-### 5. Sessions & Export (`sessions.html`)
+### 6. Sessions & Export (`sessions.html`)
 
 **Features:**
 - Browse all captured sessions with statistics
@@ -320,7 +411,7 @@ The dashboard loads all historical data from the current session on page load, s
   - Multi-select sessions and export them combined via `POST /api/sessions/export`
   - Multi-select sessions and delete them via `POST /api/sessions/delete`
 
-### 6. Emergency Warnings (`emergency_warnings.html`) 🆕
+### 7. Emergency Warnings (`emergency_warnings.html`)
 
 **Purpose:**
 - View and analyze all Cell Broadcast emergency messages received from the network
@@ -577,7 +668,7 @@ F12 → Network tab → Disable cache checkbox
 - ADB support
 - USB debugging enabled
 - Location services
-- 5G Broadcast capability (for broadcast testing)
+- N71 band support (required for 5G Broadcast testing)
 
 **Requirements for Native Android App:**
 - Android 8.0+ (API 26+)
@@ -635,9 +726,11 @@ POST /api/sessions/delete         - Delete a session (log file + index entry)
 POST /api/sessions/export         - Export multiple sessions as a single combined CSV
 POST /api/sessions/import_phone   - Import sessions from Android app via ADB
 
-GET  /api/cb/list                 - Get list of all Cell Broadcast messages (NEW!)
-GET  /api/cb/message/{msg_id}     - Get full details of specific CB message (NEW!)
-POST /api/cb/import_phone         - Import CB logs from Android app via ADB (NEW!)
+GET  /api/cb/list                 - Get list of all Cell Broadcast messages
+GET  /api/cb/message/{msg_id}     - Get full details of specific CB message
+POST /api/cb/import_phone         - Import CB logs from Android app via ADB
+
+POST /api/predict-coverage        - Generate coverage prediction using Okumura-Hata model (NEW in v2.0!)
 ```
 
 ## 🎉 Features Summary
@@ -646,6 +739,13 @@ POST /api/cb/import_phone         - Import CB logs from Android app via ADB (NEW
 - ✅ Real-time signal monitoring (RSRP, RSRQ, RSSI, SNR)
 - ✅ GPS location tracking with route visualization
 - ✅ Interactive coverage heatmaps
+- ✅ **🆕 Coverage Prediction (v2.0)** - Okumura-Hata RF propagation modeling
+  - Automatic transmitter calibration from measurements
+  - Environment-aware (urban/suburban) path loss calculations
+  - Hybrid interpolation with model-based predictions
+  - Physical correctness checks (signal decay enforcement)
+  - Adaptive grid resolution (100-150 cells, zoom-dependent)
+  - Directional antenna support (8-sector gain patterns)
 - ✅ 16-QAM/QPSK modulation threshold analysis
 - ✅ Session persistence across page refreshes
 - ✅ Web-based start/stop control
@@ -701,6 +801,9 @@ Future enhancements:
 - [x] Retry logic for reliable cell data collection (✅ Completed v1.2)
 - [x] Cell Broadcast emergency message monitoring (✅ Completed v1.3)
 - [x] CB message import tool (✅ Completed v1.3)
+- [x] Coverage prediction using RF propagation models (✅ Completed v2.0)
+- [x] Okumura-Hata path loss model integration (✅ Completed v2.0)
+- [x] Automatic transmitter calibration (✅ Completed v2.0)
 - [ ] Multi-device monitoring support
 - [ ] Advanced filtering (by PCI, Cell ID, signal threshold)
 - [ ] Session comparison view
@@ -711,6 +814,8 @@ Future enhancements:
 - [ ] Android app: Real-time map view
 - [ ] CB message export to CSV/JSON
 - [ ] CB message filtering by priority/category
+- [ ] 3D terrain modeling for better path loss accuracy
+- [ ] Custom antenna pattern editor
 
 ## 🤝 Contributing
 
@@ -738,12 +843,52 @@ MIT License - Use freely for testing and analysis purposes.
 
 ---
 
-**Version**: 1.3.2
+**Version**: 2.0.0
 **Created**: December 2025
 **Purpose**: Professional 5G Broadcast signal monitoring, coverage analysis, and emergency alert system testing
-**Tech Stack**: Python 3, Leaflet.js, Android ADB, Kotlin/Android, JSONL storage
+**Tech Stack**: Python 3, Leaflet.js, Android ADB, Kotlin/Android, JSONL storage, Okumura-Hata RF modeling
 
-**What's New in v1.3.2:**
+**What's New in v2.0.0 (Major Release):**
+- 🎯 **Coverage Prediction Engine** - Advanced RF propagation modeling for unmeasured areas
+  - Okumura-Hata path loss model calibrated for 5G Broadcast (626 MHz)
+  - Automatic transmitter power and environment detection from measurements
+  - Environment-aware calculations (urban vs suburban propagation)
+  - Example: "Calibrated 26.5dBm + Antenna 17.0dB = 55.0dBm ERP"
+- 🧮 **Intelligent Hybrid Interpolation** - Blends measurements with physics models
+  - IDW (Inverse Distance Weighting) with power 6-12 for nearest-neighbor emphasis
+  - Signal quality multipliers (50x boost for green coverage within 5km)
+  - Model-measurement blending when measurements are sparse or distant
+  - Smooth gradients from green (near transmitter) → yellow → red (edge)
+- 📐 **Directional Antenna Support** - 8-sector antenna gain patterns
+  - Configurable per-sector gains (-40 to +20 dB)
+  - Affects coverage shape and range calculations
+  - Path loss correction: 10^(gain_dB / 35)
+- 🛡️ **Physical Correctness Enforcement** - Prevents unrealistic predictions
+  - Signal cannot increase with distance from transmitter
+  - Suppresses strong predictions beyond areas with weak measurements
+  - Eliminates green "circles" appearing past red zones
+- ⚡ **Performance Optimizations** - Fast predictions for large grids
+  - Spatial indexing: 20×20 grid hash table for O(1) lookups
+  - Cached calculations: Distance and antenna gain pre-computed
+  - Early exit for cells beyond coverage boundaries
+  - Adaptive grids: 100-150 cells based on zoom level
+  - Prediction times: 2-8 seconds for 25,000-37,000 cells
+- 🎨 **Adaptive Grid Resolution** - Consistent predictions across zoom levels
+  - Zoom ≤8 (country): 150 cells (higher detail)
+  - Zoom 9-11 (region): 120 cells
+  - Zoom 12+ (city): 100 cells
+  - 20% padding around visible area
+  - Latitude-adjusted aspect ratio
+- 📊 **Validation & Metrics** - Real-time accuracy reporting
+  - Cross-validation: MAE 0.3-1.0 dB, RMSE 0.8-2.5 dB
+  - Logged in server console during prediction
+  - Coverage statistics (interpolated/predicted/gray/no coverage)
+- 🗺️ **New API Endpoint** - `POST /api/predict-coverage`
+  - Takes transmitters, measurements, bounds, zoom
+  - Returns prediction grid with RSRP/RSRQ values
+  - Includes calibration details and validation metrics
+
+**Previous Updates (v1.3.2):**
 - 📱 **Multi-Phone Support** - Device name prefix for log files
   - Network logs: `{deviceName}_{timestamp}.jsonl` (e.g., `pixel3_20251230_073318.jsonl`)
   - CB logs: `{deviceName}_{timestamp}_{serialNumber}.json` (e.g., `pixel3_20251029_132113_3312.json`)
