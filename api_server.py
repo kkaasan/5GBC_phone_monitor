@@ -824,13 +824,11 @@ class APIHandler(SimpleHTTPRequestHandler):
 
         # Create adaptive grid based on zoom level for optimal performance and detail
         # Base grid size determines the smaller dimension
-        # Higher resolution at country level for better detail
-        if zoom <= 11:
+        # Reduced at high zoom for better performance
+        if zoom <= 14:
             base_grid_size = 100
-        elif zoom <= 14:
-            base_grid_size = 150
         else:
-            base_grid_size = 200
+            base_grid_size = 150
 
         # Calculate aspect ratio-adjusted grid for more square cells
         # At high latitudes, longitude degrees are shorter in physical distance
@@ -1172,10 +1170,11 @@ class APIHandler(SimpleHTTPRequestHandler):
                         # This ensures cells near measurements directly reflect those measurements
 
                         # OPTIMIZATION: Limit to K nearest measurements for speed
-                        # Sort by distance and take only the 15 closest
+                        # Sort by distance and take only the 5 closest
                         # This dramatically speeds up processing with minimal accuracy loss
+                        # IDW is dominated by nearest measurements anyway
                         nearby_measurements_sorted = sorted(nearby_measurements, key=lambda m: m['dist_km'])
-                        nearby_measurements_limited = nearby_measurements_sorted[:15]
+                        nearby_measurements_limited = nearby_measurements_sorted[:5]
 
                         # Find distance to nearest measurement
                         min_meas_dist = nearby_measurements_limited[0]['dist_km']
