@@ -824,11 +824,15 @@ class APIHandler(SimpleHTTPRequestHandler):
 
         # Create adaptive grid based on zoom level for optimal performance and detail
         # Base grid size determines the smaller dimension
-        # Reduced at high zoom for better performance
-        if zoom <= 14:
-            base_grid_size = 100
+        # Higher resolution at all zoom levels for better detail
+        if zoom <= 8:
+            base_grid_size = 150  # Country view - higher resolution
+        elif zoom <= 11:
+            base_grid_size = 120  # Region view
+        elif zoom <= 14:
+            base_grid_size = 100  # City view
         else:
-            base_grid_size = 150
+            base_grid_size = 100  # Street view
 
         # Calculate aspect ratio-adjusted grid for more square cells
         # At high latitudes, longitude degrees are shorter in physical distance
@@ -1170,11 +1174,10 @@ class APIHandler(SimpleHTTPRequestHandler):
                         # This ensures cells near measurements directly reflect those measurements
 
                         # OPTIMIZATION: Limit to K nearest measurements for speed
-                        # Sort by distance and take only the 3 closest
-                        # This dramatically speeds up processing with minimal accuracy loss
-                        # IDW with high power is dominated by nearest measurement anyway
+                        # Sort by distance and take only the 10 closest
+                        # This provides consistent results across zoom levels
                         nearby_measurements_sorted = sorted(nearby_measurements, key=lambda m: m['dist_km'])
-                        nearby_measurements_limited = nearby_measurements_sorted[:3]
+                        nearby_measurements_limited = nearby_measurements_sorted[:10]
 
                         # Find distance to nearest measurement
                         min_meas_dist = nearby_measurements_limited[0]['dist_km']
@@ -1200,11 +1203,32 @@ class APIHandler(SimpleHTTPRequestHandler):
 
                         for m in nearby_measurements_limited:
                             # Weight by inverse distance with aggressive power
-                            # SIMPLIFIED: No signal quality multipliers for speed
                             if m['dist_km'] < 0.01:
                                 weight = 1000000.0  # Extremely close - use measurement directly
                             else:
                                 weight = 1.0 / (m['dist_km'] ** idw_power)
+
+                            # Give extra weight to strong measurements, but only within realistic range
+                            # This prevents green from extending unrealistically far (>80km)
+                            signal_quality_multiplier = 1.0
+                            if m['rsrp'] > -95:  # Green coverage (good signal)
+                                # Green boost decreases with distance - only effective within 15km
+                                if m['dist_km'] < 5.0:
+                                    signal_quality_multiplier = 50.0  # Strong boost nearby
+                                elif m['dist_km'] < 10.0:
+                                    signal_quality_multiplier = 20.0  # Moderate boost
+                                elif m['dist_km'] < 15.0:
+                                    signal_quality_multiplier = 5.0   # Small boost
+                                # Beyond 15km: no boost (multiplier = 1.0)
+                            elif m['rsrp'] > -105:  # Yellow coverage (moderate signal)
+                                # Yellow boost only within 8km
+                                if m['dist_km'] < 5.0:
+                                    signal_quality_multiplier = 5.0
+                                elif m['dist_km'] < 8.0:
+                                    signal_quality_multiplier = 2.0
+                            # Red/gray get no boost (multiplier = 1.0)
+
+                            weight *= signal_quality_multiplier
 
                             weighted_rsrp += m['rsrp'] * weight
                             weighted_rsrq += m['rsrq'] * weight

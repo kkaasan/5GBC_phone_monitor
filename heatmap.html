@@ -1202,13 +1202,14 @@
                 const dataPointCount = points.length;
 
                 // Adaptive grid based on zoom level:
-                // Zoom 5-14: 100 cells (good balance of detail and performance)
-                // Zoom 15+: 150 cells (maximum detail for street level)
+                // Higher resolution at country view for smaller pixels
                 let gridSize;
-                if (zoom <= 14) {
-                    gridSize = 100;
+                if (zoom <= 8) {
+                    gridSize = 150;  // Country view - higher resolution
+                } else if (zoom <= 11) {
+                    gridSize = 120;  // Region view
                 } else {
-                    gridSize = 150;
+                    gridSize = 100;  // City and street view
                 }
 
                 // Reduce grid if very few data points to avoid artifacts
