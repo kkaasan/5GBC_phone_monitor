@@ -1203,13 +1203,32 @@ class APIHandler(SimpleHTTPRequestHandler):
 
                         for m in nearby_measurements_limited:
                             # Weight by inverse distance with aggressive power
-                            # Pure IDW - no signal quality multipliers
-                            # Prevents physically impossible patterns where weak signal areas
-                            # are surrounded by strong signal areas further from tower
                             if m['dist_km'] < 0.01:
                                 weight = 1000000.0  # Extremely close - use measurement directly
                             else:
                                 weight = 1.0 / (m['dist_km'] ** idw_power)
+
+                            # Give extra weight to strong measurements within extended range
+                            # This helps green coverage extend properly in interpolated areas
+                            signal_quality_multiplier = 1.0
+                            if m['rsrp'] > -95:  # Green coverage (good signal)
+                                # Green boost extended to 20km
+                                if m['dist_km'] < 5.0:
+                                    signal_quality_multiplier = 50.0  # Strong boost nearby
+                                elif m['dist_km'] < 10.0:
+                                    signal_quality_multiplier = 20.0  # Moderate boost
+                                elif m['dist_km'] < 20.0:
+                                    signal_quality_multiplier = 5.0   # Small boost extended range
+                                # Beyond 20km: no boost (multiplier = 1.0)
+                            elif m['rsrp'] > -105:  # Yellow coverage (moderate signal)
+                                # Yellow boost within 10km
+                                if m['dist_km'] < 5.0:
+                                    signal_quality_multiplier = 5.0
+                                elif m['dist_km'] < 10.0:
+                                    signal_quality_multiplier = 2.0
+                            # Red/gray get no boost (multiplier = 1.0)
+
+                            weight *= signal_quality_multiplier
 
                             weighted_rsrp += m['rsrp'] * weight
                             weighted_rsrq += m['rsrq'] * weight
