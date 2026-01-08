@@ -1171,8 +1171,14 @@ class APIHandler(SimpleHTTPRequestHandler):
                         # Use IDW interpolation with very strong emphasis on nearest measurement
                         # This ensures cells near measurements directly reflect those measurements
 
+                        # OPTIMIZATION: Limit to K nearest measurements for speed
+                        # Sort by distance and take only the 15 closest
+                        # This dramatically speeds up processing with minimal accuracy loss
+                        nearby_measurements_sorted = sorted(nearby_measurements, key=lambda m: m['dist_km'])
+                        nearby_measurements_limited = nearby_measurements_sorted[:15]
+
                         # Find distance to nearest measurement
-                        min_meas_dist = min(m['dist_km'] for m in nearby_measurements)
+                        min_meas_dist = nearby_measurements_limited[0]['dist_km']
 
                         # Very aggressive IDW power - nearest measurement dominates
                         # This prevents green areas from being averaged down to yellow/red
@@ -1193,7 +1199,7 @@ class APIHandler(SimpleHTTPRequestHandler):
                         weighted_rsrq = 0
                         weight_sum = 0
 
-                        for m in nearby_measurements:
+                        for m in nearby_measurements_limited:
                             # Weight by inverse distance with aggressive power
                             if m['dist_km'] < 0.01:
                                 weight = 1000000.0  # Extremely close - use measurement directly
