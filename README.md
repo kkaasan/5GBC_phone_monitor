@@ -7,6 +7,40 @@ Professional 5G Broadcast signal analysis and coverage mapping tool for real-tim
 ![Android](https://img.shields.io/badge/android-8.0+-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
+## 📥 Quick Download
+
+**[⬇️ Download Android App (APK)](https://github.com/kkaasan/5GBC_phone_monitor/raw/main/android_app/app/build/outputs/apk/debug/app-debug.apk)** - Standalone monitoring without PC
+
+---
+
+## 📑 Table of Contents
+
+| Section | Description |
+|---------|-------------|
+| [📸 Screenshots](#-screenshots) | App interface previews |
+| [🌟 Features](#-features) | Desktop, Android app & CB monitoring capabilities |
+| [📁 Project Structure](#-project-structure) | File and directory layout |
+| [📲 Android App Installation](#-android-app-installation) | APK download and setup guide |
+| [🚀 Quick Start](#-quick-start-desktop-monitoring) | Desktop monitoring setup |
+| [📊 Web Interface](#-web-interface) | Control panel, dashboard, heatmap, settings |
+| [📝 Command Line Usage](#-command-line-usage) | CLI commands and options |
+| [📦 Data Format](#-data-format) | JSON, JSONL, and CSV formats |
+| [🎯 Use Cases](#-use-cases) | Coverage testing, drive testing, analysis |
+| [🔧 Configuration](#-configuration) | Customization options |
+| [🛠️ Troubleshooting](#️-troubleshooting) | Common issues and fixes |
+| [📱 Compatible Devices](#-compatible-devices) | Tested phones and requirements |
+| [🔬 Technical Details](#-technical-details) | Signal metrics and thresholds |
+| [🔐 Privacy & Security](#-privacy--security) | Data handling policies |
+| [📄 API Endpoints](#-api-endpoints) | REST API reference |
+| [🎉 Features Summary](#-features-summary) | Complete feature list |
+| [🚧 Known Limitations](#-known-limitations) | Current constraints |
+| [📈 Roadmap](#-roadmap) | Planned features |
+| [🤝 Contributing](#-contributing) | How to contribute |
+| [📜 License](#-license) | MIT License |
+| [🆘 Support](#-support) | Getting help |
+
+---
+
 ## 📸 Screenshots
 
 ### Main Interface
