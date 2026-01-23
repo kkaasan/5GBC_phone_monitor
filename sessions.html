@@ -409,8 +409,8 @@
                 const minutes = Math.round(totalDurationMinutes % 60);
                 document.getElementById('totalDuration').textContent = `${hours}h ${minutes}m`;
 
-                // Display sessions (newest first)
-                const sortedSessions = [...sessions].sort((a, b) => b.session_id.localeCompare(a.session_id));
+                // Display sessions (newest first by date)
+                const sortedSessions = [...sessions].sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
                 displaySessions(sortedSessions);
 
             } catch (error) {

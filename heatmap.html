@@ -668,7 +668,7 @@
 
                 // Sort sessions by date (newest first)
                 const sortedSessions = [...index.sessions].sort((a, b) =>
-                    b.session_id.localeCompare(a.session_id)
+                    new Date(b.start_time) - new Date(a.start_time)
                 );
 
                 sortedSessions.forEach(session => {
