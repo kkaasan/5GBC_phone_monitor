@@ -267,6 +267,14 @@
             android:paddingTop="8dp" />
 
         <TextView
+            android:id="@+id/versionText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="10sp"
+            android:textColor="#888888"
+            android:paddingTop="4dp" />
+
+        <TextView
             android:id="@+id/disclaimerText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

@@ -113,21 +113,29 @@ class LogcatCBLogger(private val context: Context) {
     private fun parseCBMessage(logLines: List<String>): JSONObject? {
         try {
             val cbData = JSONObject()
-            val messageLines = mutableListOf<String>()
+            val bodyLines = mutableListOf<String>()
             var logTimestamp: String? = null
+            var inMessage = false
+
+            // Log lines that are system state, not body content
+            val systemKeywords = listOf(
+                "SmsCbMessage{", "Dispatching", "Found ", "compareMessage",
+                "Duplicate message", "Not a duplicate", "Idle:", "Waiting:",
+                "call cancel", "Airplane mode", "onLocationUnavailable",
+                "release wakelock", "broadcast complete"
+            )
 
             for (line in logLines) {
-                // Extract timestamp from log line (format: 12-29 14:30:22.123)
+                // Extract timestamp from first log line
                 if (logTimestamp == null) {
                     val tsRegex = Regex("""^(\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})""")
-                    tsRegex.find(line)?.let {
-                        logTimestamp = it.groupValues[1]
-                    }
+                    tsRegex.find(line)?.let { logTimestamp = it.groupValues[1] }
                 }
 
-                // Extract SmsCbMessage details
                 if (line.contains("SmsCbMessage{")) {
-                    // Parse fields
+                    inMessage = true
+
+                    // Parse header fields from the SmsCbMessage{ line
                     Regex("""geographicalScope=(\d+)""").find(line)?.let {
                         cbData.put("geographicalScope", it.groupValues[1].toInt())
                     }
@@ -140,62 +148,107 @@ class LogcatCBLogger(private val context: Context) {
                     Regex("""language=(\w+)""").find(line)?.let {
                         cbData.put("language", it.groupValues[1])
                     }
-                    Regex("""priority=(\d+)""").find(line)?.let {
-                        cbData.put("priority", it.groupValues[1].toInt())
-                    }
-                    Regex("""received time=(\d+)""").find(line)?.let {
-                        cbData.put("receivedTime", it.groupValues[1].toLong())
-                    }
-                    Regex("""slotIndex = (\d+)""").find(line)?.let {
-                        cbData.put("slotIndex", it.groupValues[1].toInt())
-                    }
-                    Regex("""geo=([^}]+)""").find(line)?.let {
-                        cbData.put("geo", it.groupValues[1].trim())
+                    // location=[mcc,mnc,lac/tac] - broadcast area cell identifier
+                    Regex("""location=\[([^\]]*)\]""").find(line)?.let {
+                        cbData.put("location", it.groupValues[1])
                     }
 
-                    // Extract CMAS info
-                    val cmasRegex = Regex(
-                        """SmsCbCmasInfo\{messageClass=(-?\d+), category=(-?\d+), responseType=(-?\d+), severity=(-?\d+), urgency=(-?\d+), certainty=(-?\d+)\}"""
-                    )
-                    cmasRegex.find(line)?.let {
-                        cbData.put("cmasInfo", JSONObject().apply {
-                            put("messageClass", it.groupValues[1].toInt())
-                            put("category", it.groupValues[2].toInt())
-                            put("responseType", it.groupValues[3].toInt())
-                            put("severity", it.groupValues[4].toInt())
-                            put("urgency", it.groupValues[5].toInt())
-                            put("certainty", it.groupValues[6].toInt())
-                        })
-                    }
+                    // Try to parse metadata fields from this line (single-line message format)
+                    parseMetadataFields(line, cbData)
 
-                    // Extract body
-                    Regex("""body=(.+)""").find(line)?.let {
+                    // Extract first body line (everything after "body=")
+                    Regex("""body=(.*)$""").find(line)?.let {
                         var bodyText = it.groupValues[1]
+                        // Single-line format: strip trailing metadata
                         if (bodyText.contains(", priority=")) {
                             bodyText = bodyText.substringBefore(", priority=")
                         }
-                        messageLines.add(bodyText)
+                        if (bodyText.isNotEmpty()) bodyLines.add(bodyText)
+                    }
+
+                } else if (inMessage) {
+                    // Extract content after logcat prefix "): "
+                    val content = line.substringAfter("): ").trimEnd()
+
+                    // The closing metadata line starts with ", priority=" or ", received time="
+                    if (content.startsWith(", priority=") || content.startsWith(", received time=") ||
+                        content.startsWith(", SmsCbCmasInfo")) {
+                        parseMetadataFields(content, cbData)
+                    } else if (systemKeywords.none { line.contains(it) }) {
+                        // Body continuation line
+                        bodyLines.add(content)
                     }
                 }
             }
 
-            // Join message lines
-            if (messageLines.isNotEmpty()) {
-                cbData.put("body", messageLines.joinToString("\n"))
+            // Assemble body, removing trailing blank lines
+            if (bodyLines.isNotEmpty()) {
+                val trimmed = bodyLines.dropLastWhile { it.isBlank() }
+                val fullBody = trimmed.joinToString("\n").trim()
+
+                // Fallback: if metadata was mixed into body (edge case), split it out
+                if (fullBody.contains(", priority=")) {
+                    cbData.put("body", fullBody.substringBefore(", priority=").trim())
+                    val metaPart = ", priority=" + fullBody.substringAfter(", priority=")
+                    parseMetadataFields(metaPart, cbData)
+                } else {
+                    cbData.put("body", fullBody)
+                }
             }
 
-            if (cbData.length() == 0 || !cbData.has("body")) {
-                return null
-            }
+            if (cbData.length() == 0 || !cbData.has("body")) return null
 
             cbData.put("logTimestamp", logTimestamp)
             cbData.put("source", "android_logcat")
-
             return cbData
 
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing CB message from logcat", e)
             return null
+        }
+    }
+
+    private fun parseMetadataFields(text: String, cbData: JSONObject) {
+        if (!cbData.has("priority")) {
+            Regex("""priority=(\d+)""").find(text)?.let {
+                cbData.put("priority", it.groupValues[1].toInt())
+            }
+        }
+        if (!cbData.has("receivedTime")) {
+            Regex("""received time=(\d+)""").find(text)?.let {
+                cbData.put("receivedTime", it.groupValues[1].toLong())
+            }
+        }
+        if (!cbData.has("slotIndex")) {
+            Regex("""slotIndex\s*=\s*(\d+)""").find(text)?.let {
+                cbData.put("slotIndex", it.groupValues[1].toInt())
+            }
+        }
+        if (!cbData.has("maximumWaitingTime")) {
+            Regex("""maximumWaitingTime=(\d+)""").find(text)?.let {
+                cbData.put("maximumWaitingTime", it.groupValues[1].toInt())
+            }
+        }
+        if (!cbData.has("geo")) {
+            Regex("""geo=([^}]*)""").find(text)?.let {
+                val geo = it.groupValues[1].trimEnd('}').trim()
+                if (geo.isNotEmpty()) cbData.put("geo", geo)
+            }
+        }
+        if (!cbData.has("cmasInfo")) {
+            val cmasRegex = Regex(
+                """SmsCbCmasInfo\{messageClass=(-?\d+), category=(-?\d+), responseType=(-?\d+), severity=(-?\d+), urgency=(-?\d+), certainty=(-?\d+)\}"""
+            )
+            cmasRegex.find(text)?.let {
+                cbData.put("cmasInfo", JSONObject().apply {
+                    put("messageClass", it.groupValues[1].toInt())
+                    put("category", it.groupValues[2].toInt())
+                    put("responseType", it.groupValues[3].toInt())
+                    put("severity", it.groupValues[4].toInt())
+                    put("urgency", it.groupValues[5].toInt())
+                    put("certainty", it.groupValues[6].toInt())
+                })
+            }
         }
     }
 
@@ -235,8 +288,10 @@ class LogcatCBLogger(private val context: Context) {
                 put("language", cbData.optString("language"))
                 put("priority", cbData.opt("priority"))
                 put("geographicalScope", cbData.opt("geographicalScope"))
-                put("geo", cbData.optString("geo"))
+                cbData.optString("location").let { if (it.isNotEmpty()) put("location", it) }
+                cbData.optString("geo").let { if (it.isNotEmpty()) put("geo", it) }
                 cbData.optJSONObject("cmasInfo")?.let { put("cmasInfo", it) }
+                put("maximumWaitingTime", cbData.opt("maximumWaitingTime"))
                 put("slotIndex", cbData.opt("slotIndex"))
                 put("coordinates", location)
                 put("source", cbData.optString("source"))

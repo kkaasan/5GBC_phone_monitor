@@ -125,6 +125,20 @@ class MainActivity : AppCompatActivity() {
         loggingBorder = findViewById(R.id.loggingBorder)
         val startButton: Button = findViewById(R.id.startButton)
 
+        val versionText: TextView = findViewById(R.id.versionText)
+        val versionName = try {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        } catch (_: Exception) { "?" }
+        val versionCode = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                packageManager.getPackageInfo(packageName, 0).longVersionCode
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, 0).versionCode.toLong()
+            }
+        } catch (_: Exception) { -1L }
+        versionText.text = "v$versionName (build $versionCode)"
+
         startButton.setOnClickListener {
             if (isLogging) {
                 stopLogging()
