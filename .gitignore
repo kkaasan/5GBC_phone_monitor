@@ -6,13 +6,21 @@ cb_dumps/
 *.jsonl
 *.csv
 
+# Android build (keep only the debug APK)
+android_app/app/build/intermediates/
+android_app/app/build/kotlin/
+android_app/app/build/outputs/apk/androidTest/
+android_app/app/build/outputs/apk/debug/output-metadata.json
+android_app/app/build/outputs/bundle/
+android_app/app/build/tmp/
+android_app/build/
+
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
 develop-eggs/
 dist/
 downloads/
