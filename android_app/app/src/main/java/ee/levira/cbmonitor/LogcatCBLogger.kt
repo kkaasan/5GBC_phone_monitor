@@ -122,8 +122,10 @@ class LogcatCBLogger(private val context: Context) {
                 "SmsCbMessage{", "Dispatching", "Found ", "compareMessage",
                 "Duplicate message", "Not a duplicate", "Idle:", "Waiting:",
                 "call cancel", "Airplane mode", "onLocationUnavailable",
-                "release wakelock", "broadcast complete"
+                "release wakelock", "broadcast complete", "CbSendMessageCalculator"
             )
+
+            var bodyComplete = false
 
             for (line in logLines) {
                 // Extract timestamp from first log line
@@ -132,7 +134,8 @@ class LogcatCBLogger(private val context: Context) {
                     tsRegex.find(line)?.let { logTimestamp = it.groupValues[1] }
                 }
 
-                if (line.contains("SmsCbMessage{")) {
+                if (line.contains("SmsCbMessage{") && !inMessage) {
+                    // Only process the first SmsCbMessage occurrence to avoid duplicate body
                     inMessage = true
 
                     // Parse header fields from the SmsCbMessage{ line
@@ -174,7 +177,8 @@ class LogcatCBLogger(private val context: Context) {
                     if (content.startsWith(", priority=") || content.startsWith(", received time=") ||
                         content.startsWith(", SmsCbCmasInfo")) {
                         parseMetadataFields(content, cbData)
-                    } else if (systemKeywords.none { line.contains(it) }) {
+                        bodyComplete = true  // Body ends at metadata line; ignore further content
+                    } else if (!bodyComplete && systemKeywords.none { line.contains(it) }) {
                         // Body continuation line
                         bodyLines.add(content)
                     }
