@@ -576,7 +576,7 @@
 
                 const detailsDiv = document.getElementById(`details-${msgId}`);
 
-                // Parse geo polygon
+                // Parse geo area (polygon or circle)
                 let geoPoints = '';
                 let geoCoords = [];
                 if (message.geo && message.geo.includes('polygon|')) {
@@ -588,6 +588,12 @@
                         const [lat, lon] = p.split(',').map(parseFloat);
                         return [lat, lon];
                     });
+                } else if (message.geo && message.geo.startsWith('circle|')) {
+                    const parts = message.geo.replace('circle|', '').split('|');
+                    const [lat, lon] = parts[0].split(',').map(parseFloat);
+                    const radius = parseFloat(parts[1]);
+                    geoPoints = `  center: ${lat}, ${lon}\n  radius: ${radius} m`;
+                    geoCoords = [[lat, lon]];
                 }
 
                 detailsDiv.innerHTML = `
@@ -709,7 +715,7 @@
 
                         ${message.geo ? `
                         <div class="metadata-section" style="grid-column: 1 / -1;">
-                            <h4>🗺️ Geographical Area (Polygon)</h4>
+                            <h4>🗺️ Geographical Area</h4>
                             <div class="geo-polygon" onclick="showMessageOnMap('${msgId}')" title="Click to view on map">
                                 ${geoPoints || message.geo}
                             </div>
@@ -760,7 +766,7 @@
 
             let bounds = [];
 
-            // Parse and display polygon if available
+            // Parse and display geo area (polygon or circle)
             if (messageData.geo && messageData.geo.includes('polygon|')) {
                 const points = messageData.geo.replace('polygon|', '').split('|');
                 const coords = points.map(p => {
@@ -769,7 +775,6 @@
                     return [lat, lon];
                 });
 
-                // Add polygon
                 L.polygon(coords, {
                     color: '#ef4444',
                     fillColor: '#fee2e2',
@@ -780,6 +785,27 @@
                         <h4 style="margin: 0 0 10px 0; color: #ef4444;">Alert Area</h4>
                         <p style="margin: 5px 0;"><strong>Message:</strong> ${escapeHtml(messageData.body.split('\n')[0])}</p>
                         <p style="margin: 5px 0;"><strong>Time:</strong> ${new Date(messageData.timestamp).toLocaleString('en-GB', { hour12: false })}</p>
+                        <p style="margin: 5px 0;"><strong>Priority:</strong> ${messageData.priority}</p>
+                    </div>
+                `);
+            } else if (messageData.geo && messageData.geo.startsWith('circle|')) {
+                const parts = messageData.geo.replace('circle|', '').split('|');
+                const [lat, lon] = parts[0].split(',').map(parseFloat);
+                const radius = parseFloat(parts[1]);
+                bounds.push([lat, lon]);
+
+                L.circle([lat, lon], {
+                    radius: radius,
+                    color: '#ef4444',
+                    fillColor: '#fee2e2',
+                    fillOpacity: 0.4,
+                    weight: 2
+                }).addTo(map).bindPopup(`
+                    <div style="min-width: 250px;">
+                        <h4 style="margin: 0 0 10px 0; color: #ef4444;">Alert Area</h4>
+                        <p style="margin: 5px 0;"><strong>Message:</strong> ${escapeHtml(messageData.body.split('\n')[0])}</p>
+                        <p style="margin: 5px 0;"><strong>Time:</strong> ${new Date(messageData.timestamp).toLocaleString('en-GB', { hour12: false })}</p>
+                        <p style="margin: 5px 0;"><strong>Radius:</strong> ${radius} m</p>
                         <p style="margin: 5px 0;"><strong>Priority:</strong> ${messageData.priority}</p>
                     </div>
                 `);
@@ -842,7 +868,18 @@
                     const response = await fetch(`/api/cb/message/${msg.id}?` + new Date().getTime());
                     const message = await response.json();
 
-                    // Add polygon
+                    // Add geo area (polygon or circle)
+                    const color = message.priority >= 3 ? '#ef4444' : message.priority >= 2 ? '#f59e0b' : '#3b82f6';
+                    const fillColor = message.priority >= 3 ? '#fee2e2' : message.priority >= 2 ? '#fef3c7' : '#dbeafe';
+                    const geoPopup = `
+                        <div style="min-width: 250px;">
+                            <h4 style="margin: 0 0 10px 0;">${escapeHtml(msg.heading)}</h4>
+                            <p style="margin: 5px 0;"><strong>Time:</strong> ${new Date(message.timestamp).toLocaleString('en-GB', { hour12: false })}</p>
+                            <p style="margin: 5px 0;"><strong>Priority:</strong> ${message.priority}</p>
+                            <p style="margin: 5px 0;"><strong>Category:</strong> ${message.serviceCategory}</p>
+                        </div>
+                    `;
+
                     if (message.geo && message.geo.includes('polygon|')) {
                         const points = message.geo.replace('polygon|', '').split('|');
                         const coords = points.map(p => {
@@ -850,23 +887,13 @@
                             bounds.push([lat, lon]);
                             return [lat, lon];
                         });
-
-                        const color = message.priority >= 3 ? '#ef4444' : message.priority >= 2 ? '#f59e0b' : '#3b82f6';
-                        const fillColor = message.priority >= 3 ? '#fee2e2' : message.priority >= 2 ? '#fef3c7' : '#dbeafe';
-
-                        L.polygon(coords, {
-                            color: color,
-                            fillColor: fillColor,
-                            fillOpacity: 0.3,
-                            weight: 2
-                        }).addTo(map).bindPopup(`
-                            <div style="min-width: 250px;">
-                                <h4 style="margin: 0 0 10px 0;">${escapeHtml(msg.heading)}</h4>
-                                <p style="margin: 5px 0;"><strong>Time:</strong> ${new Date(message.timestamp).toLocaleString('en-GB', { hour12: false })}</p>
-                                <p style="margin: 5px 0;"><strong>Priority:</strong> ${message.priority}</p>
-                                <p style="margin: 5px 0;"><strong>Category:</strong> ${message.serviceCategory}</p>
-                            </div>
-                        `);
+                        L.polygon(coords, { color, fillColor, fillOpacity: 0.3, weight: 2 }).addTo(map).bindPopup(geoPopup);
+                    } else if (message.geo && message.geo.startsWith('circle|')) {
+                        const parts = message.geo.replace('circle|', '').split('|');
+                        const [lat, lon] = parts[0].split(',').map(parseFloat);
+                        const radius = parseFloat(parts[1]);
+                        bounds.push([lat, lon]);
+                        L.circle([lat, lon], { radius, color, fillColor, fillOpacity: 0.3, weight: 2 }).addTo(map).bindPopup(geoPopup);
                     }
 
                     // Add device location marker
