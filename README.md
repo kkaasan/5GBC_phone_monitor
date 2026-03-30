@@ -176,10 +176,17 @@ cb_monitor/
    - Tap the APK file to install
    - Accept permissions when prompted
 
-3. **Grant Permissions**
-   - Location (Fine & Background) - Required for GPS data
-   - Phone State - Required for network signal data
-   - Battery Optimization Exemption - Recommended for reliable background monitoring
+3. **Grant Permissions via ADB** (connect phone via USB with USB debugging enabled)
+   ```bash
+   adb install android_app/app/build/outputs/apk/debug/app-debug.apk
+   adb shell pm grant ee.levira.cbmonitor android.permission.READ_LOGS
+   adb shell pm grant ee.levira.cbmonitor android.permission.ACCESS_FINE_LOCATION
+   adb shell pm grant ee.levira.cbmonitor android.permission.ACCESS_COARSE_LOCATION
+   adb shell pm grant ee.levira.cbmonitor android.permission.ACCESS_BACKGROUND_LOCATION
+   adb shell pm grant ee.levira.cbmonitor android.permission.READ_PHONE_STATE
+   adb shell dumpsys deviceidle whitelist +ee.levira.cbmonitor
+   ```
+   > **Note:** `READ_LOGS` is required for CB message capture and cannot be granted from the UI — it must be set via ADB.
 
 4. **Start Monitoring**
    - Open the app
