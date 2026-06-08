@@ -239,20 +239,23 @@ class APIHandler(SimpleHTTPRequestHandler):
         writer.writeheader()
 
         for point in data_points:
+            sig = point.get('signal', {})
+            lte = point.get('lte', {})
+            loc = point.get('location', {})
             writer.writerow({
                 'timestamp': point['timestamp'],
-                'latitude': point['location']['latitude'] or '',
-                'longitude': point['location']['longitude'] or '',
-                'rssi': point['signal']['rssi'] if point['signal']['rssi'] is not None else '',
-                'rsrp': point['signal']['rsrp'] if point['signal']['rsrp'] is not None else '',
-                'rsrq': point['signal']['rsrq'] if point['signal']['rsrq'] is not None else '',
-                'snr': point['signal']['snr'] if point['signal']['snr'] is not None else '',
-                'mcc': point['lte']['mcc'],
-                'mnc': point['lte']['mnc'],
-                'tac': point['lte']['tac'],
-                'ci': point['lte']['ci'],
-                'pci': point['lte']['pci'],
-                'earfcn': point['lte']['earfcn']
+                'latitude': loc.get('latitude') or '',
+                'longitude': loc.get('longitude') or '',
+                'rssi': sig.get('rssi') if sig.get('rssi') is not None else '',
+                'rsrp': sig.get('rsrp') if sig.get('rsrp') is not None else '',
+                'rsrq': sig.get('rsrq') if sig.get('rsrq') is not None else '',
+                'snr': sig.get('snr') if sig.get('snr') is not None else '',
+                'mcc': lte.get('mcc', ''),
+                'mnc': lte.get('mnc', ''),
+                'tac': lte.get('tac', ''),
+                'ci': lte.get('ci', ''),
+                'pci': lte.get('pci', ''),
+                'earfcn': lte.get('earfcn', '')
             })
 
         csv_content = output.getvalue()
