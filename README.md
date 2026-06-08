@@ -215,46 +215,70 @@ You can:
 
 ## 🚀 Quick Start (Desktop Monitoring)
 
-### Prerequisites
+### 🍎 macOS — Step by Step (copy & paste)
 
-1. **Android SDK Platform Tools** (ADB)
-   ```bash
-   # macOS with Homebrew
-   brew install android-platform-tools
-
-   # Or download from:
-   # https://developer.android.com/studio/releases/platform-tools
-   ```
-   ```powershell
-   # Windows (PowerShell)
-   winget install --id=Google.PlatformTools
-   # Or download the ZIP from the link above and add adb.exe to PATH
-   ```
-
-2. **Python 3.7+** (no external packages required)
-
-3. **Android Phone** with:
-   - USB debugging enabled
-   - Location services enabled
-   - N71 band supported device (required for 5G Broadcast)
-
-### Installation
+Run these commands **one at a time** in Terminal. This is everything a fresh Mac needs.
 
 ```bash
+# 1. Install Homebrew (skip if you already have it)
+#    If git/python prompt to install "Command Line Tools", accept it.
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+```bash
+# 2. Install ADB (Android Platform Tools)
+brew install android-platform-tools
+```
+
+```bash
+# 3. Clone the repository (HTTPS — no SSH keys needed)
+git clone https://github.com/kkaasan/5GBC_phone_monitor.git
+cd 5GBC_phone_monitor
+```
+
+```bash
+# 4. (Optional) Install Python packages for the Coverage Prediction feature only
+#    The server, dashboard, heatmap and CB monitoring work WITHOUT this step.
+python3 -m pip install numpy scipy
+```
+
+```bash
+# 5. Start the web server
+chmod +x start.sh
+./start.sh
+```
+
+Now connect your phone via USB, enable **USB debugging**, accept the *"Allow USB debugging"* prompt on the phone, and open http://localhost:8888/index.html in your browser.
+
+> **macOS comes with Python 3 preinstalled**, so no separate Python install is required for the core features. Step 4 is only needed if you want the v2.0 Coverage Prediction layer (it uses `numpy` + `scipy`).
+
+### 🪟 Windows
+
+```powershell
+# Install ADB
+winget install --id=Google.PlatformTools
+# Or download the ZIP from https://developer.android.com/studio/releases/platform-tools and add adb.exe to PATH
+
 # Clone the repository
-git clone git@github.com:kkaasan/5GBC_phone_monitor.git
+git clone https://github.com/kkaasan/5GBC_phone_monitor.git
 cd 5GBC_phone_monitor
 
-# Connect your phone via USB and enable USB debugging
-# Accept the "Allow USB debugging" prompt on your phone
+# (Optional) Coverage Prediction packages
+python -m pip install numpy scipy
 
-# Start the web server (macOS/Linux)
-# Monitoring is controlled from the web UI (Home page)
-./start.sh
-
-# Start the web server (Windows)
+# Start the web server (monitoring is controlled from the web UI)
 python api_server.py 8888
 ```
+
+### Prerequisites Summary
+
+| Requirement | Needed for | Notes |
+|-------------|-----------|-------|
+| **Homebrew** | Installing ADB on macOS | Preinstalled on most dev Macs; step 1 above installs it |
+| **ADB** (Android Platform Tools) | Talking to the phone | `brew install android-platform-tools` |
+| **Python 3.7+** | Web server & monitoring | Preinstalled on macOS — no external packages required for core |
+| **numpy + scipy** | Coverage Prediction (v2.0) **only** | `python3 -m pip install numpy scipy` |
+| **Android phone** | Data collection | USB debugging on, location on, N71 band support |
 
 ### Access the Interface
 
@@ -795,7 +819,7 @@ POST /api/predict-coverage        - Generate coverage prediction using Okumura-H
 - ✅ CSV export with full network parameters
 - ✅ Cell tower tracking (PCI, Cell ID, TAC)
 - ✅ Multiple session management
-- ✅ Zero external Python dependencies
+- ✅ Zero external Python dependencies for core monitoring (Coverage Prediction needs `numpy` + `scipy`)
 - ✅ Works offline (except OpenStreetMap tiles)
 
 ### Emergency Warnings (NEW!)
