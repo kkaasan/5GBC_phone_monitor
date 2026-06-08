@@ -7,6 +7,7 @@ cb_dumps/
 *.csv
 
 # Android build (keep only the debug APK)
+android_app/.gradle/
 android_app/app/build/intermediates/
 android_app/app/build/kotlin/
 android_app/app/build/outputs/apk/androidTest/
