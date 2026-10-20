@@ -95,6 +95,7 @@ Professional 5G Broadcast signal analysis and coverage mapping tool for real-tim
 - **Robust Network Collection** - Retry mechanism with exponential backoff for reliable data
 - **Battery Optimization** - Requests Doze mode exemption for uninterrupted monitoring
 - **Live Cell View** - Real-time display of signal metrics and GPS status
+- **⛰️ Altitude & Speed Logging (NEW in app v1.4)** - GPS altitude, vertical accuracy, speed and bearing are saved with every point (useful for helicopter/drone measurements)
 - **Automatic File Export** - Saves logs to device storage in JSONL format
 - **Session Management** - Compatible with desktop heatmap viewer
 - **📱 Multi-Phone Support (NEW in v1.3.2!)** - Device name prefix for log separation
@@ -209,7 +210,8 @@ You can:
 - ✅ **Retry Logic**: Exponential backoff (2-12s timeouts) for reliable cell data
 - ✅ **Stale Detection**: Automatically detects and refreshes stale network data
 - ✅ **Battery Optimized**: Requests Doze mode exemption for uninterrupted monitoring
-- ✅ **Live Display**: Real-time signal metrics and GPS status
+- ✅ **Live Display**: Real-time signal metrics and GPS status, including altitude (± vertical accuracy) and speed
+- ✅ **Altitude Logging**: GPS altitude, vertical accuracy, speed and bearing in every log point (app v1.4+)
 - ✅ **Green Border**: 5dp border indicates active logging
 - ✅ **Compatible Format**: JSONL logs work with desktop heatmap viewer
 
@@ -326,6 +328,7 @@ When using multiple phones, set unique device names to separate logs:
 - **Real-time Gauges**: RSSI, RSRP, RSRQ, SNR with circular progress indicators
 - **Live Map**: GPS location with complete route history
 - **Network Info**: MCC, MNC, TAC, Cell ID, PCI, EARFCN
+- **Altitude & Speed**: GPS altitude (± vertical accuracy) and speed in km/h, when the phone app logs them
 - **Session Statistics**:
   - Total data points collected
   - Signal range (min/max RSSI)
@@ -345,7 +348,7 @@ The dashboard loads all historical data from the current session on page load, s
 - **Interactive Visualization**:
   - 🔥 **Heatmap**: Signal strength gradient overlay
   - 🛣️ **Route**: Path traveled during monitoring
-  - 📍 **Markers**: Individual measurement points with popups
+  - 📍 **Markers**: Individual measurement points with popups (incl. altitude and speed when available)
 - **Export to CSV**: Download session data
 - **Collapsible Controls**: Clean interface with expandable control panel
 -- **Transmitter Filters**: Heatmap/markers honor active transmitters (by PCI); click tower icons to toggle coverage on/off. At least one transmitter with a configured PCI must be active to render the heatmap.
@@ -591,10 +594,26 @@ Updated every 30 seconds with current session:
   },
   "location": {
     "latitude": "59.491133",
-    "longitude": "24.912215"
+    "longitude": "24.912215",
+    "altitude": 352.4,
+    "vertical_accuracy": 4.0,
+    "speed": 33.5,
+    "bearing": 187.0
   }
 }
 ```
+
+**Location fields written by the Android app (v1.4+):**
+
+| Field | Unit | Notes |
+|-------|------|-------|
+| `latitude`, `longitude` | degrees | Strings, as before |
+| `altitude` | m | GPS altitude above the **WGS84 ellipsoid**, not above sea level (MSL). In Estonia the ellipsoid height is ~18–20 m higher than MSL |
+| `vertical_accuracy` | m | Altitude accuracy estimate |
+| `speed` | m/s | Ground speed (×3.6 for km/h) |
+| `bearing` | degrees | Direction of travel, 0 = north |
+
+Each of these fields is present only when the location fix provides it (a network-based fix has no altitude). Older logs and the ADB desktop monitor do not have them.
 
 ### Session Index (`data/data_index.json`)
 
@@ -631,9 +650,11 @@ One JSON object per line (JSONL format):
 ### CSV Export Format
 
 ```csv
-timestamp,latitude,longitude,rssi,rsrp,rsrq,snr,mcc,mnc,tac,ci,pci,earfcn
-2025-12-14T16:47:41,59.491133,24.912215,-63,-87,-8,,901,56,65534,1280,45,68676
+timestamp,latitude,longitude,altitude,vertical_accuracy,speed,bearing,rssi,rsrp,rsrq,snr,mcc,mnc,tac,ci,pci,earfcn
+2025-12-14T16:47:41,59.491133,24.912215,352.4,4.0,33.5,187.0,-63,-87,-8,,901,56,65534,1280,45,68676
 ```
+
+Altitude columns are empty for points without altitude data. The `cb_monitor.py export` command (ADB desktop monitor) keeps the old column set.
 
 ## 🎯 Use Cases
 

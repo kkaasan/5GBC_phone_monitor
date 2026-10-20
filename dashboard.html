@@ -383,6 +383,14 @@
                     <div class="info-value" id="lon">--</div>
                 </div>
                 <div class="info-item">
+                    <div class="info-label">Altitude (GPS)</div>
+                    <div class="info-value" id="alt">--</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Speed</div>
+                    <div class="info-value" id="speed">--</div>
+                </div>
+                <div class="info-item">
                     <div class="info-label">Status</div>
                     <div class="info-value" id="status" style="font-size: 11px;">Waiting...</div>
                 </div>
@@ -457,6 +465,18 @@
         });
 
         // Update gauge
+        // GPS altitude is WGS84 ellipsoid height (~18-20 m above MSL in Estonia)
+        function formatAltitude(loc) {
+            if (!loc || loc.altitude == null) return '--';
+            const vAcc = loc.vertical_accuracy != null ? ` ±${Math.round(loc.vertical_accuracy)}` : '';
+            return `${Math.round(loc.altitude)} m${vAcc}`;
+        }
+
+        function formatSpeed(loc) {
+            if (!loc || loc.speed == null) return '--';
+            return `${Math.round(loc.speed * 3.6)} km/h`;
+        }
+
         function updateGauge(id, value, min, max) {
             const circle = document.getElementById(id + '-circle');
             const valueEl = document.getElementById(id + '-value');
@@ -738,6 +758,8 @@
                 document.getElementById('earfcn').textContent = data.lte.earfcn;
                 document.getElementById('lat').textContent = data.location.latitude || '--';
                 document.getElementById('lon').textContent = data.location.longitude || '--';
+                document.getElementById('alt').textContent = formatAltitude(data.location);
+                document.getElementById('speed').textContent = formatSpeed(data.location);
                 document.getElementById('status').textContent = '🟢 Monitoring Active';
 
                 // Update location

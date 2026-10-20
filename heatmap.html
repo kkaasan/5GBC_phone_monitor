@@ -1011,7 +1011,15 @@
                             popupContent += `📋 Session: ${point.sessionId}<br>`;
                         }
                         popupContent += `⏰ ${date} ${time}<br>`;
-                        popupContent += `📌 ${lat.toFixed(6)}, ${lon.toFixed(6)}</div>`;
+                        popupContent += `📌 ${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+                        if (point.location.altitude != null) {
+                            const vAcc = point.location.vertical_accuracy != null ? ` ±${Math.round(point.location.vertical_accuracy)} m` : '';
+                            popupContent += `<br>⛰️ Altitude: <b>${Math.round(point.location.altitude)} m</b>${vAcc}`;
+                        }
+                        if (point.location.speed != null) {
+                            popupContent += `<br>💨 Speed: ${Math.round(point.location.speed * 3.6)} km/h`;
+                        }
+                        popupContent += `</div>`;
 
                         // Signal Strength Section
                         popupContent += `<div style="margin-top: 8px; padding: 4px; background: #f0f0f0; border-radius: 4px;">`;
