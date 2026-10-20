@@ -457,8 +457,9 @@ class MainActivity : AppCompatActivity() {
         val location = json.optJSONObject("location")
         val lat = location?.optString("latitude") ?: "-"
         val lon = location?.optString("longitude") ?: "-"
+        val alt = location?.takeIf { it.has("altitude") }?.optDouble("altitude")
         val locStr = if (lat != "-" && lon != "-") {
-            "${lat.take(8)}, ${lon.take(8)}"
+            "${lat.take(8)}, ${lon.take(8)}" + (alt?.let { " · ${it.toInt()} m" } ?: "")
         } else {
             "No GPS"
         }

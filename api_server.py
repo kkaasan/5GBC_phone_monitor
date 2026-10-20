@@ -232,6 +232,7 @@ class APIHandler(SimpleHTTPRequestHandler):
         output = io.StringIO()
         fieldnames = [
             'timestamp', 'latitude', 'longitude',
+            'altitude', 'vertical_accuracy', 'speed', 'bearing',
             'rssi', 'rsrp', 'rsrq', 'snr',
             'mcc', 'mnc', 'tac', 'ci', 'pci', 'earfcn'
         ]
@@ -246,6 +247,10 @@ class APIHandler(SimpleHTTPRequestHandler):
                 'timestamp': point['timestamp'],
                 'latitude': loc.get('latitude') or '',
                 'longitude': loc.get('longitude') or '',
+                'altitude': loc.get('altitude') if loc.get('altitude') is not None else '',
+                'vertical_accuracy': loc.get('vertical_accuracy') if loc.get('vertical_accuracy') is not None else '',
+                'speed': loc.get('speed') if loc.get('speed') is not None else '',
+                'bearing': loc.get('bearing') if loc.get('bearing') is not None else '',
                 'rssi': sig.get('rssi') if sig.get('rssi') is not None else '',
                 'rsrp': sig.get('rsrp') if sig.get('rsrp') is not None else '',
                 'rsrq': sig.get('rsrq') if sig.get('rsrq') is not None else '',
@@ -1745,6 +1750,7 @@ class APIHandler(SimpleHTTPRequestHandler):
         fieldnames = [
             'session_id',
             'timestamp', 'latitude', 'longitude',
+            'altitude', 'vertical_accuracy', 'speed', 'bearing',
             'rssi', 'rsrp', 'rsrq', 'snr',
             'mcc', 'mnc', 'tac', 'ci', 'pci', 'earfcn'
         ]
@@ -1757,6 +1763,10 @@ class APIHandler(SimpleHTTPRequestHandler):
                 'timestamp': point.get('timestamp', ''),
                 'latitude': point.get('location', {}).get('latitude') or '',
                 'longitude': point.get('location', {}).get('longitude') or '',
+                'altitude': (point.get('location', {}) or {}).get('altitude', ''),
+                'vertical_accuracy': (point.get('location', {}) or {}).get('vertical_accuracy', ''),
+                'speed': (point.get('location', {}) or {}).get('speed', ''),
+                'bearing': (point.get('location', {}) or {}).get('bearing', ''),
                 'rssi': (point.get('signal', {}) or {}).get('rssi') or '',
                 'rsrp': (point.get('signal', {}) or {}).get('rsrp') or '',
                 'rsrq': (point.get('signal', {}) or {}).get('rsrq') or '',

@@ -193,6 +193,11 @@ class MonitoringService : Service() {
             put("location", JSONObject().apply {
                 put("latitude", location?.latitude?.toString())
                 put("longitude", location?.longitude?.toString())
+                // GPS altitude is WGS84 ellipsoid height, not MSL; null when the fix has none
+                location?.takeIf { it.hasAltitude() }?.let { put("altitude", it.altitude) }
+                location?.takeIf { it.hasVerticalAccuracy() }?.let { put("vertical_accuracy", it.verticalAccuracyMeters.toDouble()) }
+                location?.takeIf { it.hasSpeed() }?.let { put("speed", it.speed.toDouble()) }
+                location?.takeIf { it.hasBearing() }?.let { put("bearing", it.bearing.toDouble()) }
             })
             cellInfo.optString("note", "").takeIf { it.isNotEmpty() }?.let {
                 put("cell_note", it)
