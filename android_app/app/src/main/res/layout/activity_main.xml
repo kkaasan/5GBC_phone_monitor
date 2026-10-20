@@ -197,7 +197,8 @@
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
                     android:id="@+id/coordsRow"
-                    android:weightSum="2">
+                    android:weightSum="2"
+                    android:paddingBottom="6dp">
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
@@ -205,6 +206,26 @@
                         android:text="Coordinates" />
                     <TextView
                         android:id="@+id/coordsValue"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textAlignment="viewEnd"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:id="@+id/altitudeRow"
+                    android:weightSum="2">
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Altitude / speed" />
+                    <TextView
+                        android:id="@+id/altitudeValue"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"

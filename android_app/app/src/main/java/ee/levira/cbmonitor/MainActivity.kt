@@ -36,6 +36,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * Get the user-set device name (from Settings -> About Phone -> Device name)
@@ -73,6 +74,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rsrqValue: TextView
     private lateinit var gpsStatusValue: TextView
     private lateinit var coordsValue: TextView
+    private lateinit var altitudeValue: TextView
     private lateinit var logView: TextView
     private lateinit var logFileNameValue: TextView
     private lateinit var gpsRow: LinearLayout
@@ -118,6 +120,7 @@ class MainActivity : AppCompatActivity() {
         rsrqValue = findViewById(R.id.rsrqValue)
         gpsStatusValue = findViewById(R.id.gpsStatusValue)
         coordsValue = findViewById(R.id.coordsValue)
+        altitudeValue = findViewById(R.id.altitudeValue)
         logView = findViewById(R.id.logView)
         logFileNameValue = findViewById(R.id.logFileNameValue)
         gpsRow = findViewById(R.id.gpsRow)
@@ -339,6 +342,7 @@ class MainActivity : AppCompatActivity() {
         rsrqValue.text = snapshot.rsrq
         gpsStatusValue.text = snapshot.gpsStatus
         coordsValue.text = snapshot.coords
+        altitudeValue.text = snapshot.altitude
 
         val warnGps = snapshot.satUsed == 0 && (snapshot.lastFixAgeSec ?: Int.MAX_VALUE) > 120
         val highlightColor = Color.parseColor("#FFE7C2") // light orange
@@ -486,6 +490,7 @@ class MainActivity : AppCompatActivity() {
             rsrq = "-",
             gpsStatus = "-",
             coords = "-",
+            altitude = "-",
             satUsed = null,
             lastFixAgeSec = null
         )
@@ -504,6 +509,7 @@ class MainActivity : AppCompatActivity() {
         val telephony = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
         val location = getLatestLocationQuick()
         val coordsText = location?.let { "${formatCoord(it.latitude)}, ${formatCoord(it.longitude)}" } ?: "-"
+        val altitudeText = location?.let { formatAltitude(it) } ?: "-"
         val ageSeconds = location?.let {
             ((SystemClock.elapsedRealtimeNanos() - it.elapsedRealtimeNanos) / 1_000_000_000L).toInt().coerceAtLeast(0)
         }
@@ -518,7 +524,7 @@ class MainActivity : AppCompatActivity() {
         val allCells: List<CellInfo>? = try {
             telephony.allCellInfo
         } catch (_: SecurityException) {
-            return placeholder.copy(networkId = "Permissions needed", gpsStatus = gpsStatus, coords = coordsText)
+            return placeholder.copy(networkId = "Permissions needed", gpsStatus = gpsStatus, coords = coordsText, altitude = altitudeText)
         } catch (_: Exception) {
             null
         }
@@ -532,7 +538,8 @@ class MainActivity : AppCompatActivity() {
         val cell = nrCell ?: lteCell ?: anyRegistered ?: anyCell ?: return placeholder.copy(
             networkId = "No cell info",
             gpsStatus = gpsStatus,
-            coords = coordsText
+            coords = coordsText,
+            altitude = altitudeText
         )
 
         return when (cell) {
@@ -558,6 +565,7 @@ class MainActivity : AppCompatActivity() {
                     rsrq = rsrq,
                     gpsStatus = gpsStatus,
                     coords = coordsText,
+                    altitude = altitudeText,
                     satUsed = satUsedCount,
                     lastFixAgeSec = ageSeconds
                 )
@@ -597,6 +605,7 @@ class MainActivity : AppCompatActivity() {
                     rsrq = (rsrqVal ?: "-").toString(),
                     gpsStatus = gpsStatus,
                     coords = coordsText,
+                    altitude = altitudeText,
                     satUsed = satUsedCount,
                     lastFixAgeSec = ageSeconds
                 )
@@ -606,6 +615,7 @@ class MainActivity : AppCompatActivity() {
                 networkId = "Unsupported cell type",
                 gpsStatus = gpsStatus,
                 coords = coordsText,
+                altitude = altitudeText,
                 satUsed = satUsedCount,
                 lastFixAgeSec = ageSeconds
             )
@@ -646,6 +656,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun formatCoord(value: Double): String {
         return String.format(Locale.US, "%.6f", value)
+    }
+
+    // GPS altitude is WGS84 ellipsoid height (~18-20 m above MSL in Estonia)
+    private fun formatAltitude(location: Location): String {
+        val alt = if (location.hasAltitude()) {
+            val acc = location.takeIf { it.hasVerticalAccuracy() }?.let { " ±${it.verticalAccuracyMeters.roundToInt()}" } ?: ""
+            "${location.altitude.roundToInt()} m$acc"
+        } else "-"
+        val speed = if (location.hasSpeed()) "${(location.speed * 3.6f).roundToInt()} km/h" else "-"
+        return "$alt / $speed"
     }
 
     private fun ensureGnssCallback() {
@@ -762,6 +782,7 @@ class MainActivity : AppCompatActivity() {
         val rsrq: String,
         val gpsStatus: String,
         val coords: String,
+        val altitude: String,
         val satUsed: Int?,
         val lastFixAgeSec: Int?
     )
